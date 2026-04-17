@@ -48,21 +48,6 @@ def generate_chaos_card(chaos_level: int = None):
 
 # Генерация отдельной карты
 
-def skill_ability(ability):
-    skilln = match.randint(0, 5)
-    power_level = match.randint(0, 15) * skilln
-
-    skill = SkillType[skilln]
-
-    card_ability = {
-        "ability": AbilityType[ability],
-        "skill": skill,
-        'power_level': power_level
-    }
-
-    return card_ability
-
-
 def card_biology():
     gender = match.randint(0, 1)
 
@@ -77,7 +62,7 @@ def card_biology():
     old = match.randint(y, x)
     
     card_biology = {
-        "gender": nice[gender],
+        "gender": genders[gender],
         "old": old,
         "race": rase[rasen]
     }
@@ -142,20 +127,24 @@ def card_heal():
 def card_job():
     is_job_nice = match.randint(0, 1)
     job_val = match.randint(0, 100)
+    skill = match.randint(0, 100)
+    abil= 10
     if is_job_nice:
         js_job_nece = "полезная"
-        if job_val//20 > 2:
-            scill = job_val//20
+        if job_val//20 < 4:
+            is_job_nice = True
+            abil=job_val//20+1
         else:
-            scill = 0
+            is_job_nice = False
     else: 
-        scill = 0
         js_job_nece = "Бесполезная"
 
     card_job = {
         "job": job[job_val//20],
         "is_nice": js_job_nece,
-        "scill": scill
+        "skill": skill,
+        "can_be_ability": is_job_nice,
+        "ability_type": AbilityType[abil]
     }
 
     return card_job
@@ -204,11 +193,12 @@ def card_phobia():
 
 def card_ability():
     ability = match.randint(1, 9)
-    is_nice = match.randint(0, 1)
+    chaos_level = match.randint(0, 5)
 
     card_ability = {
-        "ability": ability,
-        'nice': nice[is_nice]
+        "ability name": AbilityType[ability],
+        'is_chaotic': chaos[chaos_level],
+        'ability ID': AbilityType
     }
 
     return card_ability
@@ -229,17 +219,20 @@ def inventory():
 
 # Словари
 
+genders = {0: "мужчина",
+          1: "женщина"}
 
 AbilityType={
-    1: "heal",
-    2: "steal",
-    3: "spoil",
-    4: "gift",
-    5: "spawn",
-    6: "change_gender",
-    7: "reveal",
-    8: "swap_trait",
-    9: "revive"
+    1: "лечение здоровья",
+    3: "исколечить здоровье",
+    2: "украсть предмет",
+    4: "получить или подарить предмет",
+    5: "заменить карточку игроку",
+    6: "изменение пола персонажа",
+    7: "Использовать 2 голоса в голосовании",
+    8: "Поменяться карточкой с игроком",
+    9: "Вернуть игрока в бункер",
+    10: 'None'
 }
 
 SkillType = {
@@ -265,7 +258,7 @@ rase = {
     10: "зомби",
     11: "робот",
     12: "инопланетянин",
-    13: "Выбери сам абсурдную рассу 1 словом."}
+    13: "Выбери сам абсурдную расу 1 словом."}
 
 chaos = {
     0: "логичный полностью",
