@@ -179,7 +179,7 @@ def card_fact():
     chaosn = match.randint(0, 100)
 
     if chaosn > 85:
-        chaosn = 5
+        chaosn =  100
     else:
         chaosn = chaosn 
 
