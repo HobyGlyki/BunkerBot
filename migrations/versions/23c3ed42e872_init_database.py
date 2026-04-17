@@ -1,8 +1,8 @@
 """Init database
 
-Revision ID: ae1cd1a678b0
+Revision ID: 23c3ed42e872
 Revises: 
-Create Date: 2026-04-17 15:48:55.284348
+Create Date: 2026-04-17 18:47:27.649486
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ae1cd1a678b0'
+revision: str = '23c3ed42e872'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,6 +26,7 @@ def upgrade() -> None:
     sa.Column('chaos_level', sa.Integer(), nullable=True),
     sa.Column('disaster_description', sa.Text(), nullable=True),
     sa.Column('bunker_capacity', sa.Integer(), nullable=True),
+    sa.Column('bunker_years', sa.Integer(), nullable=True),
     sa.Column('bunker_features_json', sa.JSON(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.PrimaryKeyConstraint('id')
@@ -42,7 +43,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_players_tg_user_id'), 'players', ['tg_user_id'], unique=True)
     op.create_table('cards',
     sa.Column('player_id', sa.Integer(), nullable=True),
-    sa.Column('type', sa.Enum('PROFESSION', 'HEALTH', 'INVENTORY', 'BIOLOGY', 'ABILITY', 'PHOBIA', 'HOBBY', name='cardtype'), nullable=True),
+    sa.Column('type', sa.Enum('PROFESSION', 'appearance', 'HEALTH', 'INVENTORY', 'BIOLOGY', 'ABILITY', 'PHOBIA', 'HOBBY', name='cardtype'), nullable=True),
     sa.Column('name', sa.String(length=100), nullable=True),
     sa.Column('power_level', sa.Integer(), nullable=True),
     sa.Column('skill_level', sa.Integer(), nullable=True),

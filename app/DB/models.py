@@ -12,6 +12,7 @@ class GameStatus(enum.Enum):
 
 class CardType(enum.Enum):
     PROFESSION = "profession"
+    appearance = "appearance"
     HEALTH = "health"
     INVENTORY = "inventory"
     BIOLOGY = "biology"
@@ -43,6 +44,7 @@ class GameSession(AbstractModel):
     chaos_level = Column(Integer, default=0)
     disaster_description = Column(Text)
     bunker_capacity = Column(Integer)
+    bunker_years = Column(Integer)
     bunker_features_json = Column(JSON)
 
 class Player(AbstractModel):
