@@ -1,5 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Union, Any
+from ollama import chat
+
+response = chat(
+    model='sam860/dolphin3-qwen2.5:1.5b',
+    messages=[{'role': 'user', 'content': 'Hello!'}],
+)
+print(response.message.content)
 
 # То, что прилетает от нейронки для каждой карточки
 class CardContent(BaseModel):

@@ -1,17 +1,59 @@
-from respone import format_character_prompt
-from parser import map_character_data, parse_random_response
+from ollama import AsyncClient
+import json
+from respone import format_character_prompt  # Твой файл с промптами
+from parser import parse_random_response, parse_ai_response, map_character_data        # Твой парсер
+import asyncio
+import time
 
 
-strs= {'biology': {'gender': 'женщина', 'old': 781, 'race': 'орк'}, 'appearance': {'appearance': 'странная', 'is_nice': 'нет', 'mass': 135, 'height': 320}, 'health': {'heal': 'легкая болезнь', 'is_appearance': 'здоровье связанно с внешностью'}, 'job': {'job': 'Лечит', 'is_nice': 'Бесполезная', 'skill': 99, 'can_be_ability': 0, 'ability_type': 'None', 'ability ID': 10}, 'hobby': {'hobby': 'странная', 'is_nice': 'да', 'is_job': 'да'}, 'fact': {'is_positive': 'нет', 'is_inexpected': 'да', 'chaos': 'Полностью смиешной абсурдный факт, который не может случиться в реальной жизни'}, 'phobia': {'phobia': 'Смешной абсурд, который может случиться в реальной жизни', 'is_nice': 'нет'}, 'inventory_1': {'inventory': 'Смешной абсурд, который может случиться в реальной жизни', 'is_job': 'нет', 'is_nice': 'нет'}, 'inventory_2': {'inventory': 'очень редкие факты об людях, который стоит скрывать', 'is_job': 'да', 'is_nice': 'да'}, 'ability_1': {'ability name': 'получить или подарить предмет', 'is_chaotic': 'Полностью смиешной абсурдный факт, который не может случиться в реальной жизни', 'ability ID': 4}, 'ability_2': {'ability name': 'заменить карточку игроку', 'is_chaotic': 'Смешной абсурд, который вряд ли может случиться в реальной жизни', 'ability ID': 5}}
 
-def ai_response(data: dict) -> str:
+
+async def ai_response(data: dict) -> str:
+    start_time = time.perf_counter() # Стартуем замер
     character_description = map_character_data(data)
     prompt = format_character_prompt(character_description)
     data = parse_random_response(data)
-    sysprompt = prompt[0]
-    charprompt = prompt[1]
-
-    return prompt, data
 
 
-print(ai_response(strs))
+    system_content = prompt[0]
+    user_content = prompt[1]
+
+
+    client = AsyncClient()
+    response = await client.chat(
+        model='llama3.2:3b',
+        format='json', 
+        messages=[
+            {'role': 'system', 'content': system_content},
+            {'role': 'user', 'content': user_content},
+        ],
+        
+        options={
+        "temperature": 0.4,    # Делает ответы более четкими и менее "размазанными"
+        "num_predict": 1024,   # Ограничиваем максимальную длину, чтобы она не уходила в бесконечные описания
+        "top_p": 0.9,          # Срезает маловероятные варианты слов, ускоряя выбор
+        "num_ctx": 2048,
+        "num_thread": 8
+    }
+    )
+    content = response['message']['content']
+    end_time = time.perf_counter()
+    duration = end_time - start_time
+    print(f"✅ Задача готова за {duration:.2f} сек.")
+    return content
+
+
+semaphore = asyncio.Semaphore(3)
+
+async def safe_ai_response(data):
+    async with semaphore:
+        return await ai_response(data)
+
+async def main(cards: dict):
+    # Создаем список задач (корутин)
+    tasks = [safe_ai_response(cards) for _ in range(7)]
+    all_results = await asyncio.gather(*tasks)
+    # Запускаем всё ОДНОВРЕМЕННО
+    # return_exceptions=True поможет, если одна генерация упадет, остальные выживут
+    print(f"Сгенерировано персонажей: {len(all_results)}")
+    print(all_results)
