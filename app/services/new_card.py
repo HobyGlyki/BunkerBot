@@ -144,7 +144,8 @@ def card_job():
         "is_nice": js_job_nece,
         "skill": skill,
         "can_be_ability": is_job_nice,
-        "ability_type": AbilityType[abil]
+        "ability_type": AbilityType[abil],
+        "ability ID": abil
     }
 
     return card_job
@@ -198,7 +199,7 @@ def card_ability():
     card_ability = {
         "ability name": AbilityType[ability],
         'is_chaotic': chaos[chaos_level],
-        'ability ID': AbilityType
+        'ability ID': ability
     }
 
     return card_ability
