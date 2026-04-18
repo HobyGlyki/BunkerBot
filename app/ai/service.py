@@ -6,10 +6,10 @@ import asyncio
 import time
 
 
-strs= {'biology': {'gender': 'мужчина', 'old': 733, 'race': 'орк'}, 'appearance': {'appearance': 'ходячий анекдот', 'is_nice': 'нет', 'mass': 240, 'height': 284}, 'health': {'heal': 'хрупкое создание', 'is_appearance': 'всё лицо — сплошной симптом'}, 'job': {'job': 'цепной пес режима', 'is_nice': 'Бесполезная', 'skill': 56, 'can_be_ability': 0, 'ability_type': 'абсолютная бездарность', 'ability ID': 10}, 'hobby': {'hobby': 'модельный сорт', 'is_nice': 'нет', 'is_job': 'нет'}, 'fact': {'is_positive': 'нет', 'is_inexpected': 'нет', 'chaos': 'Терминальное безумие'}, 'phobia': {'phobia': 'Легкий абсурд', 'is_nice': 'да'}, 'inventory_1': {'inventory': 'Странный заскок', 'is_job': 'да', 'is_nice': 'да'}, 'inventory_2': {'inventory': 'Легкий абсурд', 'is_job': 'нет', 'is_nice': 'нет'}, 'ability_1': {'ability name': 'депортация в бункер', 'is_chaotic': 'Запущенный маразм', 'ability ID': 9}, 'ability_2': {'ability name': 'регенерация тканей', 'is_chaotic': 'Легкий абсурд', 'ability ID': 1}}
+
 
 async def ai_response(data: dict) -> str:
-    start_time = time.perf_counter() # Стартуем замер
+    start_time = time.perf_counter()
     character_description = map_character_data(data)
     prompt = format_character_prompt(character_description)
     data = parse_random_response(data)
@@ -20,35 +20,49 @@ async def ai_response(data: dict) -> str:
 
 
     client = AsyncClient()
-    response = await client.chat(
-        model='qwen2.5:3b ',
-        format='json', 
-        messages=[
-            {'role': 'system', 'content': system_content},
-            {'role': 'user', 'content': user_content},
-        ],
-        
-        options={
-            "temperature": 0.7,   # Чуть ниже, чтобы меньше галлюцинировал
-            "num_ctx": 3072,
-            "num_predict": 500,   # ЭТО ВАЖНО: 350 токенов за глаза хватит на 11 лаконичных полей
-            "repeat_penalty": 1.3 # Увеличим, чтобы он не повторял одни и те же слова
-        }
-    )
-    content = response['message']['content']
-    end_time = time.perf_counter()
-    duration = end_time - start_time
-    print(f"✅ Задача готова за {duration:.2f} сек.")
-    return content
-
-
-semaphore = asyncio.Semaphore(3)  # Ограничиваем до 5 одновременных запросов к AI
+    
+    # Делаем до 3 попыток генерации, если вдруг JSON сломается
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = await client.chat(
+                model='qwen2.5:7b',  # Рекомендуется использовать модель 7b-8b для лучшей логики
+                format='json', 
+                messages=[
+                    {'role': 'system', 'content': system_content},
+                    {'role': 'user', 'content': user_content},
+                ],
+                options={
+                    "temperature": 0.8,    # Чуть меньше хаоса для стабильного JSON
+                    "num_ctx": 4096,       # Больше контекста для длинных описаний
+                    "num_predict": 2500,   # УВЕЛИЧЕНО: даем модели достаточно токенов, чтобы дописать ответ
+                    "repeat_penalty": 1.05 # СНИЖЕНО: разрешаем модели повторять кавычки и ключи JSON
+                }
+            )
+            content = response['message']['content']
+            
+            # Проверяем, что нейросеть выдала валидный JSON
+            # Если сломанный - уйдет в except и попробует заново
+            json.loads(content)
+            
+            end_time = time.perf_counter()
+            duration = end_time - start_time
+            print(f"✅ Карточка готова за {duration:.2f} сек. (Попытка {attempt + 1})")
+            return content
+            
+        except json.JSONDecodeError:
+            print(f"⚠️ Ошибка JSON на попытке {attempt + 1}. Пробуем перегенерировать...")
+            continue
+            
+    print("❌ Не удалось сгенерировать валидный JSON за 3 попытки.")
+    return "{}" # Заглушка, чтобы бот не упал с ошибкой
+semaphore = asyncio.Semaphore(1)  # Ограничиваем до 5 одновременных запросов к AI
 
 async def safe_ai_response(data):
     async with semaphore:
         return await ai_response(data)
 
-async def main(cards: dict, count: int):
+async def main1(cards: dict, count: int):
     start_time = time.perf_counter() # Стартуем замер
     # Создаем список задач (корутин)
     tasks = [safe_ai_response(cards) for _ in range(count)]
@@ -59,9 +73,6 @@ async def main(cards: dict, count: int):
     duration = end_time - start_time
     print(f"Сгенерировано персонажей: {len(all_results)}")
     print(f"Время генерации: {duration:.2f} сек.")
-    print(all_results)
+    return all_results
 
-
-if __name__ == "__main__":
-    # Запускаем цикл ОДИН раз
-    asyncio.run(main(strs, 3))
+    
