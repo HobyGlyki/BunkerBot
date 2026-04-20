@@ -6,7 +6,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.db.models import AbstractModel, GameSession, Player, Card  # noqa: F401
+from app.DB.models import AbstractModel, GameSession, Player, Card  # noqa: F401
+from app.DB.database import DATABASE_URL
 import os
 
 # this is the Alembic Config object, which provides
@@ -26,9 +27,7 @@ if config.config_file_name is not None:
 
 #database_url = os.getenv("DATABASE_URL")
 
-database_url = "sqlite:///:memory:"
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 
 target_metadata = AbstractModel.metadata

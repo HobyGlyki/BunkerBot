@@ -5,6 +5,77 @@ import random as match
 
 def generate_full_character():
     """
+    Генерирует словарь с переменными сразу для 3-х карточек каждой из 11 категорий.
+    Всего 33 заготовки.
+    """
+    data = {}
+    
+    for i in range(1, 4):
+        # Biology
+        bio = card_biology()
+        data[f'gender{i}'] = bio['gender']
+        data[f'race{i}'] = bio['race']
+        data[f'old{i}'] = bio['old']
+        
+        # Appearance
+        app = card_appearance()
+        data[f'height{i}'] = app['height']
+        data[f'mass{i}'] = app['mass']
+        data[f'appearance_desc{i}'] = app['appearance']
+        
+        # Health
+        hlth = card_heal()
+        data[f'heal_status{i}'] = hlth['heal']
+        data[f'heal_appearance{i}'] = hlth['is_appearance']
+        
+        # Job
+        job_ = card_job()
+        data[f'job_name{i}'] = job_['job']
+        data[f'job_nice{i}'] = job_['is_nice']
+        data[f'job_skill{i}'] = job_['skill']
+        data[f'job_can_be_ability{i}'] = job_['can_be_ability']
+        data[f'job_ability_ID{i}'] = job_['ability_ID']
+        data[f'job_ability_type{i}'] = job_['ability_type']
+        
+        # Hobby
+        hob = card_hobby()
+        data[f'hobby_name{i}'] = hob['hobby']
+        data[f'hobby_is_job{i}'] = hob['is_job']
+        
+        # Fact
+        fct = card_fact()
+        data[f'fact_chaos{i}'] = fct['chaos']
+        data[f'fact_positive{i}'] = fct['is_positive']
+        
+        # Phobia
+        phob = card_phobia()
+        data[f'phobia_chaos{i}'] = phob['phobia']
+        data[f'phobia_nice{i}'] = phob['is_nice']
+        
+        # Inventory 1 & 2
+        inv1 = inventory()
+        data[f'inv1_chaos{i}'] = inv1['inventory']
+        data[f'inv1_nice{i}'] = inv1['is_nice']
+        data[f'inv1_is_job{i}'] = inv1['is_job']
+
+        inv2 = inventory()
+        data[f'inv2_chaos{i}'] = inv2['inventory']
+        data[f'inv2_nice{i}'] = inv2['is_nice']
+        data[f'inv2_is_job{i}'] = inv2['is_job']
+        
+        # Ability 1 & 2
+        abil1 = card_ability()
+        data[f'abil1_type{i}'] = abil1['ability name']
+        data[f'abil1_chaos{i}'] = abil1['is_chaotic']
+        data[f'abil1_ID{i}'] = abil1['ability_ID']
+
+        abil2 = card_ability()
+        data[f'abil2_type{i}'] = abil2['ability name']
+        data[f'abil2_chaos{i}'] = abil2['is_chaotic']
+        data[f'abil2_ID{i}'] = abil2['ability_ID']
+        
+    return data
+    """
     Главная функция генерации персонажа.
     Собирает все характеристики (8 базовых карт) + 2 спец-способности.
     Возвращает готовый словарь для записи в БД или отправки в ИИ.
@@ -53,9 +124,9 @@ def card_biology():
 
     rasen = match.randint(0, 13)
 
-    if  rasen > 2:
+    if  rasen > 3:
         y = 20
-        x = 1000
+        x = 700
     else:
         y = 10
         x = 75
@@ -125,18 +196,18 @@ def card_appearance():
 
 def card_heal():
     healx = match.randint(0, 100)
-    is_appearance = match.randint(0, 2)
+    is_appearance = match.randint(0, 15)
 
     if healx > 90:
         healx = 100
-        is_appearance = 3
+        is_appearance = 0
 
 
     
 
     card_heal = {
         "heal": heal[healx//20],
-        "is_appearance": heal_appearance[is_appearance]
+        "is_appearance": heal_location[is_appearance]
 
     }
 
@@ -163,7 +234,7 @@ def card_job():
         "skill": skill,
         "can_be_ability": is_job_nice,
         "ability_type": AbilityType[abil],
-        "ability ID": abil
+        "ability_ID": abil
     }
 
     return card_job
@@ -217,7 +288,7 @@ def card_ability():
     card_ability = {
         "ability name": AbilityType[ability],
         'is_chaotic': chaos[chaos_level],
-        'ability ID': ability
+        'ability_ID': ability
     }
 
     return card_ability
@@ -263,7 +334,7 @@ SkillType = {
 }
 
 rase = {
-    0: "человек", 1: "дворф", 2: "гном", 3: "орк", 4: "эльф",
+    0: "человек", 1: "Орк", 2: "гном", 3: "Дворф", 4: "эльф",
     5: "кошко-человек", 6: "кроликочеловек", 7: "ящеролюд",
     8: "вампир", 9: "оборотень", 10: "зомби", 11: "робот",
     12: "инопланетянин", 13: "мистическое существо (придумай сам)"
@@ -296,11 +367,23 @@ heal = {
     5: "Идеально здоров"
 }
 
-heal_appearance = {
-    0: "всё лицо — сплошной симптом",
-    1: "на теле есть заметные симптомы",
-    2: "видно только врачу",
-    3: "выглядит здоровым"
+heal_location = {
+    0: "Здоровым выглядит",
+    1: "Голова (лицо, черепная коробка, скальп)",
+    2: "Органы зрения (глаза, веки, зрачки)",
+    3: "Ротовая полость (язык, зубы, дёсны)",
+    4: "Слуховой аппарат (уши, перепонки)",
+    5: "Мыслительный центр (мозг, извилины, кукуха)",
+    6: "Верхние конечности (руки, локти, подмышки)",
+    7: "Нижние конечности (ноги, коленные чашечки, пятки)",
+    8: "Торс (грудная клетка, рёбра, область сердца)",
+    9: "Жопа (ягодицы, копчик, филейная часть)",
+    10: "Репродуктивный узел (гениталии)",
+    11: "Конечности (пальцы рук, ног, когти)",
+    12: "Внутренний мир (селезенка, аппендикс, почки)",
+    13: "Пищеварительный тракт (желудок, кишечник, пупок)",
+    14: "Смешные органы (мизинец левой ноги, шишковидная железа, запасная печень)",
+    15: "Абсурдные отростки (Гнилой хвост, Вторая жопа, щупальца, Чешуя)"
 }
 
 job = {

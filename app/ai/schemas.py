@@ -5,6 +5,10 @@ class CardContent(BaseModel):
     name: str
     description: Union[str, int]
 
+class CardsBatchResponse(BaseModel):
+    cards: List[CardContent]
+
+
 # Полный ответ от нейронки (тот самый JSON)
 class CharacterDescriptionResponse(BaseModel):
     biology: CardContent
@@ -63,16 +67,3 @@ class Inventory(BaseModel):
 class Ability(BaseModel):
     ability_name: str = Field(alias="ability name") # Обработка пробела в ключе
     is_chaotic: str
-
-class CharacterData(BaseModel):
-    biology: Biology
-    appearance: Appearance
-    health: Health
-    job: Job
-    hobby: Hobby
-    fact: Fact
-    phobia: Phobia
-    inventory_1: Inventory
-    inventory_2: Inventory
-    ability_1: Ability
-    ability_2: Ability

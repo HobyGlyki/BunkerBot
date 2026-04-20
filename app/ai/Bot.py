@@ -28,7 +28,7 @@ dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    resp = await main1(strs, 1)
+    resp = await main1(strs, 1) 
     print(resp)
     await message.answer(("SAFSAFASFSA"),  parse_mode=ParseMode.MARKDOWN)
 

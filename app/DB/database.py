@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 import os
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # для тестов в оперативной памяти
 DATABASE_URL = "sqlite:///./bunker.db"
 

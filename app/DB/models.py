@@ -19,6 +19,7 @@ class CardType(enum.Enum):
     ABILITY = "ability"
     PHOBIA = "phobia"
     HOBBY = "hobby"
+    FACT = "fact" # <--- УБЕДИСЬ, ЧТО ЭТО ДОБАВЛЕНО
 
 class ActionEnum(enum.Enum):
     HEAL = "heal"
@@ -59,7 +60,7 @@ class Card(AbstractModel):
     __tablename__ = 'cards'
     
    
-    player_id = Column(Integer, ForeignKey('players.id', ondelete="CASCADE"))
+    player_id = Column(Integer, ForeignKey('players.id', ondelete="CASCADE"), nullable=True)
     type = Column(SQLEnum(CardType))
     name = Column(String(100))
     power_level = Column(Integer, default=0)
