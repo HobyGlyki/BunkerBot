@@ -19,7 +19,7 @@ class CardType(enum.Enum):
     ABILITY = "ability"
     PHOBIA = "phobia"
     HOBBY = "hobby"
-    FACT = "fact" # <--- УБЕДИСЬ, ЧТО ЭТО ДОБАВЛЕНО
+    FACT = "fact"
 
 class ActionEnum(enum.Enum):
     HEAL = "heal"

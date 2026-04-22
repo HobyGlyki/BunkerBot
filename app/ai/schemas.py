@@ -67,3 +67,7 @@ class Inventory(BaseModel):
 class Ability(BaseModel):
     ability_name: str = Field(alias="ability name") # Обработка пробела в ключе
     is_chaotic: str
+
+class GameGenerationResponse(BaseModel):
+    disaster_description: str
+    bunker_features: str

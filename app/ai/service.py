@@ -83,7 +83,7 @@ async def main1(batch_data: dict):
     categories = [
         "BIOLOGY", "APPEARANCE", "HEALTH", "JOB", 
         "HOBBY", "FACT", "PHOBIA", "INVENTORY_1", 
-        "INVENTORY_2", "ABILITY_1", "ABILITY_2"
+        "ABILITY_1", "ABILITY_2"
     ]
 
     all_results = {}
@@ -134,6 +134,9 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
         final_desc = ai_card.get("description", "")
         skill = 0
         power = 0
+        chance = 0
+        chaos_level =0
+        
         
         # 1. БИОЛОГИЯ (Свое имя и описание, ИИ игнорируем)
         if cat == "BIOLOGY":
@@ -159,8 +162,12 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
             if can_be_ability:
                 power = ab_id
                 ab_type = batch_data.get(f'job_ability_type{i}', '')
-                final_desc += f"\n[Скрытая способность: {ab_type}]"
-                
+                chance = batch_data.get(f'job_skill{i}', '')
+                chaos_level = 1
+                if chance > 0:
+                    final_desc += f"\n[способность: {ab_type}. Шанс использования на ком-то: {chance}%, шанс на себе: {chance-(chance*0.9)}%]"
+                else: 
+                    final_desc += f"\n[способность: {ab_type}.]"
         # 5, 6, 7. ХОББИ, ФАКТ, СТРАХ (Все от ИИ)
         elif cat in ["HOBBY", "FACT", "PHOBIA"]:
             pass
@@ -179,14 +186,17 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
             power = ab_id # Записываем ID способности
             final_desc += f"\n[Эффект: {ab_type}]"
 
+            chaos_level = 1
+
         # Формируем Pydantic схему и отправляем в CRUD
         new_card_data = CardCreate(
             type=CardType(raw_type),
             name=final_name,
             description=final_desc,
-            skill_level=skill,
-            power_level=power,
-            chaos_level=0 
+            skill_level=skill, #
+            power_level=power, #способность
+            base_success_chance = chance,
+            chaos_level=chaos_level
         )
         
         # Вызываем функцию создания из crud.py
