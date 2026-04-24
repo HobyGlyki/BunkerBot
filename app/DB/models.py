@@ -22,15 +22,15 @@ class CardType(enum.Enum):
     FACT = "fact"
 
 class ActionEnum(enum.Enum):
-    HEAL = "heal"
-    STEAL = "steal"
-    SPOIL = "spoil"
-    GIFT = "gift"
-    SPAWN = "spawn"
-    CHANGE_GENDER = "change_gender"
-    REVEAL = "reveal"
-    SWAP_TRAIT = "swap_trait"
-    REVIVE = "revive"
+    HEAL = "heal" #лечение
+    STEAL = "steal" #  урон
+    SPOIL = "spoil" # украсть
+    GIFT = "gift" # получить
+    SPAWN = "spawn" # заменить карточку игроку на случайную
+    CHANGE_GENDER = "change_gender" #другой пол
+    REVEAL = "reveal" #Раскрыть карту игрока
+    SWAP_TRAIT = "swap_trait" #Поменяться карточкой с игроком
+    REVIVE = "revive" #Вернуть игрока в бункер
 
 # --- Таблицы ---
 
@@ -47,6 +47,8 @@ class GameSession(AbstractModel):
     bunker_capacity = Column(Integer)
     bunker_years = Column(Integer)
     bunker_features_json = Column(JSON)
+    current_round = Column(Integer, default=1)
+    current_phase = Column(String(50), default="reveal") # "reveal" (вскрытие), "action" (способности), "vote" (голосование)
 
 class Player(AbstractModel):
     __tablename__ = 'players'

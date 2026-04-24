@@ -165,7 +165,7 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
                 chance = batch_data.get(f'job_skill{i}', '')
                 chaos_level = 1
                 if chance > 0:
-                    final_desc += f"\n[способность: {ab_type}. Шанс использования на ком-то: {chance}%, шанс на себе: {chance-(chance*0.9)}%]"
+                    final_desc += f"\n[способность: {ab_type}. Шанс использования на ком-то: {chance}%, шанс на себе: {chance-(chance//(10*9))}%]"
                 else: 
                     final_desc += f"\n[способность: {ab_type}.]"
         # 5, 6, 7. ХОББИ, ФАКТ, СТРАХ (Все от ИИ)
@@ -194,12 +194,29 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
             name=final_name,
             description=final_desc,
             skill_level=skill, #
-            power_level=power, #способность
+            power_level=skill + chaos_level, #способность
             base_success_chance = chance,
-            chaos_level=chaos_level
+            chaos_level=chaos_level,
+            interaction_type = AbilityType[power]
         )
         
         # Вызываем функцию создания из crud.py
         create_card(db, new_card_data)
         
     return True
+
+
+
+
+AbilityType={
+    1: "heal",
+    3: "steal",
+    2: "spoil",
+    4: "gift",
+    5: "spawn",
+    6: "change_gender",
+    7: "reveal",
+    8: "swap_trait",
+    9: "revive",
+    0: None
+}
