@@ -49,7 +49,7 @@ def get_player_cards(db: Session, tg_id: int):
     """    
     player = db.query(models.Player).filter(models.Player.tg_user_id == tg_id).first()
     if not player:
-        return []
+        return ["пусто"]
     player_id = player.id
     print(player_id)
     

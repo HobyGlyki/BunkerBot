@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>Конец света уже здесь.</h1>
+    <p>Создай новое убежище или присоединись к выжившим.</p>
+    
+    <button class="btn primary" 
+            hx-get="/create_game" 
+            hx-target="#game-result" 
+            hx-swap="innerHTML">
+        Сгенерировать Бункер
+    </button>
+
+    <div id="game-result" class="result-box">
+        </div>
+</div>
+{% endblock %}

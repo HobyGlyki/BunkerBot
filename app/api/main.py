@@ -1,5 +1,9 @@
 from fastapi import FastAPI, Form, Request, Depends
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+
+
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 import os
@@ -23,10 +27,14 @@ from app.DB.init_db import seed_inventory
 
 import asyncio
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 x=0
 
 app = FastAPI()
 templates = Jinja2Templates(directory="frontend")
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "frontend", "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "frontend"))
 
 def get_db():
     db = SessionLocal()
@@ -36,35 +44,148 @@ def get_db():
         db.close()
 
 
-@app.get("/games/{game_id}/join")
+# Подключаем папку со статикой (CSS, JS, картинки)
+app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+
+# Твой Jinja2 уже настроен: templates = Jinja2Templates(directory="frontend")
+
+@app.get("/", response_class=HTMLResponse)
+async def index_page(request: Request):
+    """Главная страница"""
+    # Явно указываем request и name
+    return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/games_list", response_class=HTMLResponse)
+async def games_page(request: Request, db: Session = Depends(get_db)):
+    """Страница со списком всех игр"""
+    games = db.query(GameSession).all()
+    
+    # Контекст передаем в аргумент context
+    return templates.TemplateResponse(
+        request=request, 
+        name="games.html", 
+        context={"games": games}
+    )
+
+
+# Добавь импорт Request, если его нет
+from fastapi import Request
+
+@app.get("/lobby/{game_id}", response_class=HTMLResponse)
+async def lobby_page(request: Request, game_id: int, tg_id: int = 123, name: str = "Черрешня", db: Session = Depends(get_db)):
+    """Страница ожидания начала игры"""
+    # Автоматически добавляем игрока при входе по ссылке
+    player = join_player_to_game(db, game_id, tg_id, name)
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    
+    # Временная логика хоста: если tg_id == 123, то ты ведущий
+    is_host = (tg_id == 123)
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="lobby.html", 
+        context={
+            "game": game, 
+            "current_tg_id": tg_id, 
+            "current_name": name,
+            "is_host": is_host
+        }
+    )
+
+@app.get("/lobby/{game_id}/players", response_class=HTMLResponse)
+async def lobby_players_partial(request: Request, game_id: int, db: Session = Depends(get_db)):
+    """HTMX-эндпоинт: возвращает только кусок HTML со списком игроков и статусом"""
+    players = get_players_in_game(db, game_id)
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="partials/player_list.html", 
+        context={"players": players, "game": game}
+    )
+
+@app.get("/games/{game_id}/join") #/games/1/join?tg_id=123&name=Cherry
 async def join_game(game_id: int, tg_id: int, name: str, db: Session = Depends(get_db)):
     player = join_player_to_game(db, game_id, tg_id, name)
     count = get_players_count(db, game_id)
     return {"status": "joined", "player_id": player.id, "current_players": count}
 
-@app.get("/games/{game_id}/start")
+@app.get("/games/{game_id}/start", response_class=HTMLResponse)
 async def start_game(game_id: int, db: Session = Depends(get_db)):
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
     
+    # Защита: если игра уже началась, просто кидаем на страницу игры
+    if game.status == GameStatus.IN_PROGRESS:
+        return f"<script>window.location.href = '/game/{game_id}/play';</script>"
+
     players = get_players_in_game(db, game_id)
     
-    if len(players) > x:  # Твой порог X
-        # 1. Меняем статус
-        game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    # Порог игроков (ставлю >= 1 для тестов, потом поменяешь)
+    if len(players) >= x:  
         game.status = GameStatus.IN_PROGRESS
-        
-        # 2. Раздаем карты
         distribute_cards_to_all(db, game_id)
         db.commit()
-        db.close()
-        return {"status": "started", "players_count": len(players)}
+        # Возвращаем JS-скрипт. HTMX его выполнит, и хоста перекинет на новую страницу
+        return f"<script>window.location.href = '/game/{game_id}/play';</script>"
     
-    db.close()
-    return {"status": "error", "message": "Недостаточно игроков"}
+    return "<p style='color: red;'>Недостаточно игроков!</p>"
+
+@app.get("/game/{game_id}/play", response_class=HTMLResponse)
+async def game_play_page(request: Request, game_id: int, tg_id: int = 123, db: Session = Depends(get_db)):
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    
+    # Ищем всех игроков в этой игре
+    all_players = db.query(Player).filter(Player.game_id == game_id).all()
+    
+    # ❗️ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Вручную достаем карты для каждого игрока ❗️
+    for p in all_players:
+        p.cards = db.query(Card).filter(Card.player_id == p.id).all()
+        
+    current_player = next((p for p in all_players if p.tg_user_id == tg_id), None)
+    
+    if not current_player:
+        return "Вы не участвуете в этой игре"
+
+    # Столбцы для таблицы
+    table_columns = [
+        "biology", 
+        "appearance", 
+        "health",       
+        "profession", 
+        "fact", 
+        "hobby", 
+        "phobia", 
+        "inventory"
+    ]
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="play.html", 
+        context={
+            "game": game,
+            "players": all_players,
+            "me": current_player,
+            "is_host": (tg_id == 123),
+            "columns": table_columns
+        }
+    )
+
+
+@app.post("/game/{game_id}/next_phase")
+async def next_phase(game_id: int, db: Session = Depends(get_db)):
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    # Простое переключение: из ожидания в фазу раскрытия (reveal)
+    if game.current_phase == "narrative":
+        game.current_phase = "reveal"
+    db.commit()
+    return {"status": "ok"}
+
+
 
 @app.get("/create_game")
 async def create_game(db: Session = Depends(get_db)):
     # 1. Получаем тех. данные (цифры)
-    tech_data = generate_game()
+    tech_data = generate_game(db)
     
     # 2. Берем реальные предметы и еду из базы для контекста
     # Допустим, мы берем 3 случайных предмета из таблицы Cards
@@ -142,102 +263,85 @@ async def get_all_cards(db: Session = Depends(get_db)):
 @app.get("/playerinfo")
 async def playerinfo(tg_id: int, db: Session = Depends(get_db)):
     print(tg_id)
-    return get_player_cards(db, tg_id)
+    info = get_player_cards(db, tg_id)
+    print(info)
+    return info
 
 @app.get("/next_turn")
 def next_turn():
         pass
 
-@app.get("/games/{game_id}/use_ability")
+
+# Добавь эти импорты в начало main.py:
+from app.services.action_resolver import resolve_ability, execute_ability_mechanics, build_action_narrative
+
+@app.get("/games/{game_id}/use_ability") #http://127.0.0.1:8000/games/1/use_ability?actor_tg_id=1111&ability_card_id=5&target_tg_id=2222&target_card_id=12
 async def use_card(
     actor_tg_id: int, 
     ability_card_id: int, 
-    target_tg_id: int, 
-    target_card_id: int = None, # Делаем None, так как для REVIVE или GIFT конкретная карта цели может быть не нужна
-    actor_swap_card_id: int = None, # Нужно для SWAP (какую свою карту отдает актор)
+    target_tg_id: int = None, # Сделал None на всякий случай
+    target_card_id: int = None, 
+    actor_swap_card_id: int = None, 
     db: Session = Depends(get_db)
 ):
     ability_card = db.query(Card).filter(Card.id == ability_card_id).first()
-    target_card = db.query(Card).filter(Card.id == target_card_id).first()
     actor_player = db.query(Player).filter(Player.tg_user_id == actor_tg_id).first()
-    target_player = db.query(Player).filter(Player.tg_user_id == target_tg_id).first()
-
-    # Базовые проверки
-    if not ability_card or not target_card:
-        return {"status": "error", "message": "Карта не найдена"}
+    
+    if not ability_card:
+        return {"status": "error", "message": "Карта способности не найдена"}
     if ability_card.is_used:
         return {"status": "error", "message": "Эта способность уже была использована"}
 
-    # 2. Бросаем кубики
+    target_player = None
+    if target_tg_id:
+        target_player = db.query(Player).filter(Player.tg_user_id == target_tg_id).first()
 
-    outcome, roll = resolve_ability(ability_card, target_card)
+    target_card = None
+    if target_card_id:
+        target_card = db.query(Card).filter(Card.id == target_card_id).first()
 
-    # 1. МЕХАНИЧЕСКИЕ ДЕЙСТВИЯ (Меняем связи в БД без участия ИИ)
+    # Проверка обязательной цели
+    needs_target = [ActionEnum.STEAL, ActionEnum.SPOIL, ActionEnum.SPAWN, ActionEnum.REVEAL, ActionEnum.SWAP_TRAIT, ActionEnum.HEAL]
+    if ability_card.interaction_type in needs_target and not target_card:
+        return {"status": "error", "message": "Для этого действия необходимо выбрать карту цели"}
+
+    # Бросок кубиков (только для HEAL и STEAL)
+    rp_actions = [ActionEnum.HEAL, ActionEnum.STEAL]
+    is_random = ability_card.interaction_type in rp_actions
+    outcome = "success"
+    roll = 100
+
+    if is_random:
+        outcome, roll = resolve_ability(ability_card, target_card)
+
+    # Механика
     if outcome == "success":
+        result = execute_ability_mechanics(
+            db=db, 
+            ability_card=ability_card, 
+            actor_player=actor_player, 
+            target_player=target_player, 
+            target_card=target_card, 
+            actor_swap_card_id=actor_swap_card_id
+        )
         
-        if ability_card.interaction_type == ActionEnum.SPIOL:
-            # Вор забирает карту себе
-            target_card.player_id = actor_player.id
-
-        elif ability_card.interaction_type == ActionEnum.REVEAL:
-            # Карта становится видимой для всех
-            target_card.is_revealed = True
-
-        elif ability_card.interaction_type == ActionEnum.REVIVE:
-            # Воскрешение (в models.py у тебя есть поле is_dead)
-            target_player.is_dead = False
-
-        elif ability_card.interaction_type == ActionEnum.SWAP_TRAIT:
-            # Обмен. Нам нужна карта, которую актор отдает взамен
-            if actor_swap_card_id:
-                actor_card = db.query(Card).filter(Card.id == actor_swap_card_id).first()
-                if actor_card:
-                    # Меняем владельцев местами
-                    target_card.player_id, actor_card.player_id = actor_card.player_id, target_card.player_id
-
-        elif ability_card.interaction_type == ActionEnum.GIFT:
-            # Ищем случайную свободную карту инвентаря в БД (которая никому не принадлежит)
-            random_inventory_card = db.query(Card).filter(
-                Card.type == CardType.INVENTORY,
-                Card.player_id.is_(None) # Карта лежит в "колоде", а не у игрока
-            ).order_by(func.random()).first()
-            random_inventory_card.player_id = actor_player.id
-                # Если хочешь, можешь добавить пометку, что это был подарок
-        elif ability_card.interaction_type == ActionEnum.CHANGE_GENDER:
-            pass
-        elif ability_card.interaction_type == ActionEnum.SPAWN:
-            pass
+        # Если механика вернула ошибку (например, воскрешение живого)
+        if "error" in result:
+            return {"status": "error", "message": result["error"]}
 
     ability_card.is_used = True
     db.commit()
 
-    # 2. РП ДЕЙСТВИЯ (Работает ИИ)
-    # Если это изменение состояния, мы собираем промпт и ждем ответ от нейросети
-    rp_actions = [ActionEnum.HEAL, ActionEnum.SPOIL]
-    
-    if ability_card.interaction_type in rp_actions:
-        ai_context = {
-            "action_type": ability_card.interaction_type.value,
-            "actor_name": actor_player.name,
-            "target_name": target_player.name,
-            "target_card_name": target_card.name if target_card else "Биология",
-            "target_card_desc": target_card.description if target_card else "",
-            "outcome": outcome, 
-            "roll": roll
-        }
-        
-        # Тут ты вызовешь свой ИИ
-        # ai_result = await action_ai.generate_action_outcome(ai_context)
-        
-        # Перезаписываем текст карточки тем, что придумал ИИ
-        # target_card.description = ai_result["new_description"]
-        # db.commit()
-        
-        # Для РП-действий возвращаем ИИ-описание на фронтенд
-        # narrative = ai_result["narrative"]
-    else:
-        # Для механических действий ИИ не нужен, генерируем простое системное сообщение
-        narrative = f"Действие {ability_card.interaction_type.value} завершилось со статусом: {outcome}."
+    # Формируем текст
+    narrative = build_action_narrative(
+        actor=actor_player, 
+        ability=ability_card, 
+        target=target_player, 
+        target_card=target_card, 
+        is_random=is_random, 
+        roll=roll, 
+        outcome=outcome
+    )
 
     return {
         "status": "ok", 

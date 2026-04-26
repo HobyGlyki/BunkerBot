@@ -23,14 +23,14 @@ async def generate_disaster_ai(game_data: dict) -> dict:
     
     try:
         response = await client.chat(
-            model='gemma4:31b-cloud', # Или qwen2.5:7b для скорости
+            model='gemma4:latest', # Или qwen2.5:7b для скорости
             format='json',
             messages=[
                 {'role': 'system', 'content': SYSTEM_PROMPT},
                 {'role': 'user', 'content': user_content},
             ],
             options={
-                "temperature": 0.9, # Для катастрофы можно чуть больше креатива
+                "temperature": 0.8, # Для катастрофы можно чуть больше креатива
             }
         )
         

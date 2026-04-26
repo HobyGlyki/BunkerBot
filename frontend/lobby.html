@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h2>Лобби #{{ game.id }}</h2>
+    <p>Вы вошли как: <strong>{{ current_name }}</strong> (ID: {{ current_tg_id }})</p>
+
+    {% if game.status.value == 'waiting' %}
+        <div class="lobby-box">
+            <h3>Ожидание выживших...</h3>
+            
+            <div id="players-list" 
+                 hx-get="/lobby/{{ game.id }}/players" 
+                 hx-trigger="every 2s" 
+                 hx-swap="innerHTML">
+                 <p>Загрузка списка...</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            {% if is_host %}
+                <button class="btn primary" 
+                        hx-get="/games/{{ game.id }}/start" 
+                        hx-swap="outerHTML">
+                    🚀 Начать игру
+                </button>
+            {% else %}
+                <p style="color: #ffa502;">Ожидаем, пока ведущий запустит игру...</p>
+            {% endif %}
+        </div>
+        
+    {% else %}
+        <p style="color: #2ed573;">Игра уже началась! Перенаправляем...</p>
+        <script>
+            window.location.href = "/game/{{ game.id }}/play";
+        </script>
+    {% endif %}
+</div>
+{% endblock %}

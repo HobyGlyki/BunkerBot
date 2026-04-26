@@ -48,7 +48,7 @@ class GameSession(AbstractModel):
     bunker_years = Column(Integer)
     bunker_features_json = Column(JSON)
     current_round = Column(Integer, default=1)
-    current_phase = Column(String(50), default="reveal") # "reveal" (вскрытие), "action" (способности), "vote" (голосование)
+    current_phase = Column(String(50), default="narrative") # "reveal" (вскрытие), "action" (способности), "vote" (голосование)
 
 class Player(AbstractModel):
     __tablename__ = 'players'

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="game-container">
+
+    {% if game.current_phase == 'narrative' %}
+    <section id="narrative-section">
+        <div class="hero" style="text-align: left;">
+            <h1 style="text-align: center; color: #ff4757;">Конец света</h1>
+            <p style="font-size: 1.1em; line-height: 1.6; color: #ddd;">
+                {{ game.disaster_description }}
+            </p>
+            
+            <div class="bunker-info" style="margin-top: 30px; background: #1a1a1a; padding: 20px; border-left: 4px solid #ffa502; border-radius: 5px;">
+                <h3 style="margin-top: 0; color: #ffa502;">Убежище</h3>
+                <p><strong>Описание:</strong> {{ game.bunker_features_json.bunker_detailed }}</p>
+                <ul style="list-style-type: square; margin-left: 20px; color: #bbb; line-height: 1.8;">
+                    <li><strong>Выживших в мире:</strong> {{ game.bunker_features_json.population_left }} чел.</li>
+                    <li><strong>Площадь:</strong> {{ game.bunker_features_json.area }} м²</li>
+                    <li><strong>Вместимость бункера:</strong> {{ game.bunker_capacity }} чел.</li>
+                    <li><strong>Срок нахождения:</strong> {{ game.bunker_years }} лет</li>
+                    <li><strong>Еда:</strong> {{ game.bunker_features_json.food_detailed }} (Хватит на {{ game.bunker_features_json.eat_years }} лет)</li>
+                    <li><strong>Инвентарь бункера:</strong> {{ game.bunker_features_json.inventory }}</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                {% if is_host %}
+                    <button class="btn primary" 
+                            hx-post="/game/{{ game.id }}/next_phase" 
+                            hx-swap="none" 
+                            onclick="setTimeout(() => location.reload(), 300)">
+                        Перейти к игровому столу
+                    </button>
+                {% else %}
+                    <p style="color: #2ed573; font-weight: bold;">Ожидаем, пока ведущий изучит информацию и начнет игру...</p>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+
+    {% if game.current_phase != 'narrative' %}
+    <section id="game-board">
+        <div class="status-bar" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Ваш персонаж: <span style="color: #2ed573;">{{ me.name }}</span></h2>
+            <h3 style="color: #888;">Фаза: {{ game.current_phase }}</h3>
+        </div>
+
+        <div class="table-responsive">
+            <table class="bunker-table">
+                <thead>
+                    <tr>
+                        <th>Игрок</th>
+                        {% for col in columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in players %}
+                    <tr class="{% if p.id == me.id %}is-me-row{% endif %}">
+                        <td class="player-name-cell">
+                            <strong>{{ p.name }}</strong> 
+                            {% if p.is_dead %} <span title="Мертв">💀</span> {% endif %}
+                            {% if p.id == me.id %}<br><small style="color:#2ed573;">(Вы)</small>{% endif %}
+                        </td>
+                        
+                        {% for col in columns %}
+                            <td>
+                                {% set card = p.cards | selectattr("type.value", "equalto", col) | first %}
+                                
+                                {% if card %}
+                                    {% if p.id == me.id or card.is_revealed %}
+    <div class="card-text-visible" title="{{ card.description }}">
+        {{ card.name }}
+        <br><small style="color: #aaa;">{{ card.description }}</small>
+    </div>
+{% else %}
+    <div class="card-hidden">Скрыто</div>
+{% endif %}
+                                {% else %}
+                                    <span style="color:#444;">-</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <hr style="margin: 30px 0; border-color: #333;">
+
+        <div class="my-abilities">
+            <h3>Ваши способности (Скрыты от других)</h3>
+            <div class="ability-row">
+                {% for card in me.cards %}
+                    {% if card.type.value == 'ability' %}
+                        <div class="ability-card {% if card.is_used %}used{% endif %}">
+                            <h4 style="margin: 0 0 10px 0; color: #fff;">⚡ {{ card.name }}</h4>
+                            <p style="font-size: 0.85em; color: #ccc;">{{ card.description }}</p>
+                            
+                            {% if not card.is_used %}
+                                <button class="btn secondary btn-sm" 
+                                        style="margin-top: 10px;"
+                                        hx-get="/games/{{ game.id }}/use_ability?actor_tg_id={{ me.tg_user_id }}&ability_card_id={{ card.id }}&target_tg_id={{ me.tg_user_id }}"
+                                        hx-target="#action-log"
+                                        hx-swap="innerHTML">
+                                    Применить
+                                </button>
+                            {% else %}
+                                <span style="display: block; margin-top: 10px; color: #ff4757; font-weight: bold; font-size: 0.8em;">ИСПОЛЬЗОВАНО</span>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div id="action-log" class="log-box" style="margin-top: 20px;"></div>
+    </section>
+    {% endif %}
+
+</div>
+
+<script>
+    if ("{{ game.current_phase }}" === "narrative") {
+        setInterval(() => {
+            location.reload();
+        }, 3000);
+    }
+</script>
+{% endblock %}

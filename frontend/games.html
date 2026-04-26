@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Доступные сессии</h2>
+
+<div class="games-grid">
+    {% for game in games %}
+        <div class="game-card">
+            <h3>Лобби #{{ game.id }}</h3>
+            <p><strong>Статус:</strong> <span class="status {{ game.status.value }}">{{ game.status.value }}</span></p>
+            <p><strong>Вместимость:</strong> {{ game.bunker_capacity }} чел.</p>
+            
+            {% if game.status.value == 'waiting' %}
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <a href="/lobby/{{ game.id }}?tg_id=123&name=Черрешня" class="btn primary">Войти (Хост)</a>
+                    <a href="/lobby/{{ game.id }}?tg_id=124&name=Ваня" class="btn secondary">Войти (Игрок)</a>
+                </div>
+            {% else %}
+                <button class="btn disabled" disabled>Игра идет</button>
+            {% endif %}
+        </div>
+    {% else %}
+        <p class="empty-msg">Нет созданных игр. Возвращайся на главную и создай новую!</p>
+    {% endfor %}
+</div>
+{% endblock %}

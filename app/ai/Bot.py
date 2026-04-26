@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from service import main1
+
 
 BOT_TOKEN = "7927953823:AAFDHFIZ7n0nuWGpE2FcLnvHhX6ZTIASS-I"
 
@@ -28,9 +28,7 @@ dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    resp = await main1(strs, 1) 
-    print(resp)
-    await message.answer(("SAFSAFASFSA"),  parse_mode=ParseMode.MARKDOWN)
+    await message.answer(("Жопа"),  parse_mode=ParseMode.MARKDOWN)
 
 async def main():
     print("Бот запущен (HTML Mode)...")

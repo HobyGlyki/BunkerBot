@@ -1,0 +1,17 @@
+{% if game.status.value == 'in_progress' %}
+    <script>
+        window.location.href = "/game/{{ game.id }}/play";
+    </script>
+{% endif %}
+
+<ul style="list-style: none; padding: 0;">
+    {% for player in players %}
+        <li style="padding: 10px; background: #222; margin-bottom: 5px; border-radius: 4px;">
+            👤 {{ player.name }} 
+            {% if player.tg_user_id == 123 %} <span style="color: #ff4757; font-size: 0.8em;">[ВЕДУЩИЙ]</span> {% endif %}
+        </li>
+    {% else %}
+        <li>Никого нет...</li>
+    {% endfor %}
+</ul>
+<p>Всего: {{ players|length }} / {{ game.bunker_capacity }}</p>
