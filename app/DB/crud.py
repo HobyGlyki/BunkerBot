@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 from . import models, schemas
-from .models import CardType
+from .models import CardType, Player, Card, GameSession, GameStatus, Vote, Player, Card, ActionEnum
 
 # --- СОЗДАНИЕ ---
 
@@ -86,8 +86,8 @@ def distribute_cards_to_all(db: Session, game_id: int):
     players = get_players_in_game(db, game_id)
     card_types = [
         models.CardType.PROFESSION, models.CardType.appearance, 
-        models.CardType.HEALTH, models.CardType.INVENTORY, 
-        models.CardType.BIOLOGY, models.CardType.ABILITY, 
+        models.CardType.HEALTH, models.CardType.INVENTORY, models.CardType.INVENTORY, 
+        models.CardType.BIOLOGY, models.CardType.ABILITY, models.CardType.ABILITY, 
         models.CardType.PHOBIA, models.CardType.HOBBY, models.CardType.FACT
     ]
 
@@ -118,3 +118,80 @@ def get_any_waiting_game(db: Session):
     return db.query(models.GameSession).filter(
         models.GameSession.status == models.GameStatus.WAITING
     ).order_by(func.random()).first()
+
+
+def reset_entire_database(db: Session):
+    """Полное обнуление состояния игры для тестов"""
+    try:
+        # 1. Обнуляем все карты: убираем владельца и сбрасываем флаги
+        db.query(Card).update({
+            Card.player_id: None,
+            Card.is_used: False,
+            Card.is_revealed: False
+        })
+        
+        # 2. Удаляем всех игроков (чтобы лобби стали пустыми)
+        db.query(Player).delete()
+        
+        # 3. Сбрасываем игровые сессии в начальное состояние
+        db.query(GameSession).update({
+            GameSession.status: GameStatus.WAITING,
+            GameSession.current_round: 1,
+            GameSession.current_phase: "narrative"
+        })
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Ошибка при сбросе базы: {e}")
+        return False
+    
+
+
+def cast_vote(db: Session, game_id: int, voter_id: int, target_id: int = None):
+    """Регистрирует или обновляет голос игрока."""
+    # Проверяем, есть ли у игрока активная способность "Двойной голос" (ID 9)
+    # Ищем среди неиспользованных карт игрока
+    double_vote_card = db.query(Card).filter(
+        Card.player_id == voter_id,
+        Card.interaction_type == "revive", # В твоем AbilityType это 9 (проверь соответствие в Enum)
+        Card.is_used == False
+    ).first()
+    
+    weight = 2 if double_vote_card else 1
+
+    # Проверяем, голосовал ли уже этот игрок
+    existing_vote = db.query(Vote).filter(Vote.game_id == game_id, Vote.voter_id == voter_id).first()
+    
+    if existing_vote:
+        existing_vote.target_id = target_id
+        existing_vote.weight = weight
+    else:
+        new_vote = Vote(game_id=game_id, voter_id=voter_id, target_id=target_id, weight=weight)
+        db.add(new_vote)
+    
+    db.commit()
+
+def get_voting_results(db: Session, game_id: int):
+    """Считает голоса и возвращает ID игрока на вылет."""
+    # Считаем сумму весов голосов за каждого target_id (исключая None)
+    results = db.query(
+        Vote.target_id, 
+        func.sum(Vote.weight).label('total_weight')
+    ).filter(
+        Vote.game_id == game_id, 
+        Vote.target_id.isnot(None)
+    ).group_by(Vote.target_id).order_by(func.sum(Vote.weight).desc()).all()
+
+    if not results:
+        return None # Никто не проголосовал или все "против никого"
+
+    # Если есть ничья по максимальному количеству голосов
+    max_votes = results[0].total_weight
+    top_candidates = [r.target_id for r in results if r.total_weight == max_votes]
+    
+    if len(top_candidates) > 1:
+        return "tie" # Ничья — обычно в Бункере это переголосование или никто не уходит
+        
+    return top_candidates[0]

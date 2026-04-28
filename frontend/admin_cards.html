@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="game-container">
+    <div class="status-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1>🗂 Реестр карт Убежища</h1>
+        <a href="/" class="btn secondary">Назад на главную</a>
+    </div>
+
+    <div class="filter-panel" style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333;">
+        <form method="get" action="/admin/cards" style="display: flex; gap: 20px; align-items: center;">
+            <label for="card_type" style="color: #2ed573; font-weight: bold;">Фильтр по типу:</label>
+            <select name="card_type" id="card_type" class="custom-select" onchange="this.form.submit()">
+                <option value="">-- Все категории --</option>
+                {% for t in all_types %}
+                    <option value="{{ t }}" {% if current_type == t %}selected{% endif %}>{{ t | upper }}</option>
+                {% endfor %}
+            </select>
+            <span style="color: #888;">Всего найдено: {{ cards|length }}</span>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="bunker-table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Тип</th>
+                    <th>Название</th>
+                    <th>Описание</th>
+                    <th>Параметры (P/S/C)</th>
+                    <th>Владелец (ID)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for card in cards %}
+                <tr>
+                    <td style="color: #ffa502; font-weight: bold; font-size: 0.8em;">{{ card.type.value | upper }}</td>
+                    <td style="color: #2ed573; font-weight: bold;">{{ card.name }}</td>
+                    <td style="text-align: left; font-size: 0.9em; max-width: 400px;">{{ card.description }}</td>
+                    <td>
+                        <div style="font-size: 0.8em; color: #aaa;">
+                            Power: {{ card.power_level }}<br>
+                            Skill: {{ card.skill_level }}<br>
+                            Chaos: {{ card.chaos_level }}
+                        </div>
+                    </td>
+                    <td>
+                        {% if card.player_id %}
+                            <span style="color: #fff; background: #333; padding: 2px 6px; border-radius: 4px;">{{ card.player_id }}</span>
+                        {% else %}
+                            <span style="color: #555;">Свободна</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="padding: 50px; color: #555;">В этой категории пока нет сгенерированных карт.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .custom-select {
+        background: #000;
+        color: #2ed573;
+        border: 1px solid #2ed573;
+        padding: 8px 15px;
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+    }
+    .custom-select option {
+        background: #1a1a1a;
+    }
+</style>
+{% endblock %}

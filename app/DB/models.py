@@ -32,6 +32,7 @@ class ActionEnum(enum.Enum):
     SWAP_TRAIT = "swap_trait" #Поменяться карточкой с игроком
     REVIVE = "revive" #Вернуть игрока в бункер
 
+
 # --- Таблицы ---
 
 @as_declarative()
@@ -49,6 +50,7 @@ class GameSession(AbstractModel):
     bunker_features_json = Column(JSON)
     current_round = Column(Integer, default=1)
     current_phase = Column(String(50), default="narrative") # "reveal" (вскрытие), "action" (способности), "vote" (голосование)
+    active_player_idx = Column(Integer, default=0) # Номер текущего игрока в списке
 
 class Player(AbstractModel):
     __tablename__ = 'players'
@@ -73,3 +75,12 @@ class Card(AbstractModel):
     is_revealed = Column(Boolean, default=False)
     is_used = Column(Boolean, default=False)
     description = Column(String(255))
+
+
+class Vote(AbstractModel):
+    __tablename__ = 'vote'
+
+    game_id = Column(Integer, ForeignKey("games.id"))
+    voter_id = Column(Integer, ForeignKey("players.id"))
+    target_id = Column(Integer, ForeignKey("players.id"))
+    weight = Column(Integer, default=1) # Для способности "Двойной голос"

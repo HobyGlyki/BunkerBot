@@ -9,12 +9,9 @@
         <div class="lobby-box">
             <h3>Ожидание выживших...</h3>
             
-            <div id="players-list" 
-                 hx-get="/lobby/{{ game.id }}/players" 
-                 hx-trigger="every 2s" 
-                 hx-swap="innerHTML">
-                 <p>Загрузка списка...</p>
-            </div>
+            <div hx-get="/lobby/{{ game.id }}/players?tg_id={{ current_tg_id }}" hx-trigger="every 2s" id="player-list">
+    Загрузка игроков...
+</div>
         </div>
 
         <div style="margin-top: 20px;">

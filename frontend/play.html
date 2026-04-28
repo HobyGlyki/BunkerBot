@@ -1,6 +1,48 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    /* --- СТИГЛЫ ТАБЛИЦЫ: СТРОГИЙ ДИЗАЙН --- */
+    
+    /* Убираем фоны выделений, таблица однотонная */
+    .bunker-table tbody tr {
+        background-color: transparent !important;
+    }
+    
+    /* Твоя строка: ТОЛЬКО зеленая рамка */
+    .is-me-row td {
+        border-top: 2px solid #2ed573 !important;
+        border-bottom: 2px solid #2ed573 !important;
+    }
+    .is-me-row td:first-child { border-left: 2px solid #2ed573 !important; }
+    .is-me-row td:last-child { border-right: 2px solid #2ed573 !important; }
+
+    /* Строка ходящего игрока: ТОЛЬКО оранжевая рамка (перекрывает зеленую) */
+    .active-turn-row td {
+        border-top: 2px solid #ffa502 !important;
+        border-bottom: 2px solid #ffa502 !important;
+    }
+    .active-turn-row td:first-child { border-left: 2px solid #ffa502 !important; }
+    .active-turn-row td:last-child { border-right: 2px solid #ffa502 !important; }
+
+    /* Плашка "Ваш ход" (Оставляем для заметности) */
+    .your-turn-alert {
+        background: rgba(46, 213, 115, 0.1);
+        border: 1px solid #2ed573;
+        color: #2ed573;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        margin-bottom: 20px;
+        animation: pulse-border 2s infinite;
+    }
+    @keyframes pulse-border {
+        0% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(46, 213, 115, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0); }
+    }
+</style>
+
 <div class="game-container">
 
     {% if game.current_phase == 'narrative' %}
@@ -40,11 +82,28 @@
     </section>
     {% endif %}
 
-
     {% if game.current_phase != 'narrative' %}
     <section id="game-board">
+        
+        {% if is_my_turn %}
+        <div class="your-turn-alert">
+            <h2>🔔 СЕЙЧАС ВАШ ХОД!</h2>
+            <p style="margin: 0;">Вскройте свою карту (или примените способность) и передайте ход.</p>
+        </div>
+        {% endif %}
+
         <div class="status-bar" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Ваш персонаж: <span style="color: #2ed573;">{{ me.name }}</span></h2>
+            <div class="host-actions" style="margin-right: 20px;">
+    {% if is_host and game.current_phase != 'voting' %}
+        <button class="btn-voting-start"
+                hx-post="/game/{{ game.id }}/start_voting?tg_id={{ me.tg_user_id }}"
+                hx-swap="none"
+                onclick="this.innerText='Запуск...'; this.style.opacity='0.5';">
+            ⚖️ НАЧАТЬ ГОЛОСОВАНИЕ
+        </button>
+    {% endif %}
+</div>
             <h3 style="color: #888;">Фаза: {{ game.current_phase }}</h3>
         </div>
 
@@ -54,32 +113,65 @@
                     <tr>
                         <th>Игрок</th>
                         {% for col in columns %}
-                            <th>{{ col }}</th>
+                            <th>{{ col | replace('_', ' ') | upper }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in players %}
-                    <tr class="{% if p.id == me.id %}is-me-row{% endif %}">
+                    <tr class="{% if p.id == me.id %}is-me-row{% endif %} {% if active_player and p.id == active_player.id %}active-turn-row{% endif %}">
                         <td class="player-name-cell">
                             <strong>{{ p.name }}</strong> 
                             {% if p.is_dead %} <span title="Мертв">💀</span> {% endif %}
                             {% if p.id == me.id %}<br><small style="color:#2ed573;">(Вы)</small>{% endif %}
+                            
+                            {% if active_player and p.id == active_player.id %} 
+                                <br><span style="color:#ffa502; font-size: 0.8em; font-weight: bold;">ХОДИТ...</span> 
+                            {% endif %}
                         </td>
                         
                         {% for col in columns %}
-                            <td>
-                                {% set card = p.cards | selectattr("type.value", "equalto", col) | first %}
+                            {% if col == 'inventory_1' %}
+                                {% set card_type = 'inventory' %}
+                                {% set card_index = 0 %}
+                            {% elif col == 'inventory_2' %}
+                                {% set card_type = 'inventory' %}
+                                {% set card_index = 1 %}
+                            {% else %}
+                                {% set card_type = col %}
+                                {% set card_index = 0 %}
+                            {% endif %}
+
+                            {% set cell_cards = p.cards | selectattr("type.value", "equalto", card_type) | list %}
+                            {% set card = cell_cards[card_index] if cell_cards|length > card_index else None %}
+
+                            <td class="targetable-cell" 
+                                data-target-tg-id="{{ p.tg_user_id }}" 
+                                data-target-card-id="{% if card %}{{ card.id }}{% endif %}">
                                 
                                 {% if card %}
-                                    {% if p.id == me.id or card.is_revealed %}
-    <div class="card-text-visible" title="{{ card.description }}">
-        {{ card.name }}
-        <br><small style="color: #aaa;">{{ card.description }}</small>
-    </div>
-{% else %}
-    <div class="card-hidden">Скрыто</div>
-{% endif %}
+                                    {% if p.id == me.id %}
+                                        {% if card.is_revealed %}
+                                            <div title="{{ card.description }}">
+                                                <span style="color: #2ed573; font-weight: bold; font-size: 1.1em;">{{ card.name }}</span>
+                                                <br><small style="color: #dcdcdc; font-size: 0.9em; display: block; margin-top: 5px;">{{ card.description }}</small>
+                                            </div>
+                                        {% else %}
+                                            <div title="{{ card.description }}" style="color: #888;">
+                                                <span style="font-weight: bold; font-size: 1.1em;">{{ card.name }}</span>
+                                                <br><small style="font-size: 0.9em; display: block; margin-top: 5px;">{{ card.description }}</small>
+                                            </div>
+                                        {% endif %}
+                                    
+                                    {% elif card.is_revealed %}
+                                        <div title="{{ card.description }}" style="color: #fff;">
+                                            <span style="font-weight: bold; font-size: 1.1em;">{{ card.name }}</span>
+                                            <br><small style="font-size: 0.9em; display: block; margin-top: 5px;">{{ card.description }}</small>
+                                        </div>
+                                    
+                                    {% else %}
+                                        <div class="card-hidden" style="color: #555; font-weight: bold; letter-spacing: 2px; font-size: 1.1em;">Скрыто</div>
+                                    {% endif %}
                                 {% else %}
                                     <span style="color:#444;">-</span>
                                 {% endif %}
@@ -91,23 +183,52 @@
             </table>
         </div>
 
+        {% if me.is_dead %}
+            <div style="text-align: center; color: #ff4757; margin-top: 30px; padding: 20px; border: 2px dashed #ff4757; border-radius: 10px;">
+                <h2>💀 Вы мертвы</h2>
+                <p>Вы стали призраком бункера. Вы видите все скрытые карты игроков, но не можете вмешиваться в игру.</p>
+            </div>
+        {% else %}
+            <div class="actions-panel" style="margin-top: 20px; text-align: center;">
+                {% if is_my_turn %}
+                    <button class="btn primary" id="reveal-mode-btn" style="font-size: 1.1em; padding: 10px 30px;">
+                        🔓 Вскрыть характеристику
+                    </button>
+                {% else %}
+                    <button class="btn secondary" disabled style="opacity: 0.5;">
+                        ⏳ Ожидание хода игрока: {{ active_player.name if active_player else '...' }}
+                    </button>
+                {% endif %}
+            </div>
+
+            <hr style="margin: 30px 0; border-color: #333;">
+
+            <div class="my-abilities">
+                </div>
+        {% endif %}
         <hr style="margin: 30px 0; border-color: #333;">
 
         <div class="my-abilities">
             <h3>Ваши способности (Скрыты от других)</h3>
             <div class="ability-row">
                 {% for card in me.cards %}
-                    {% if card.type.value == 'ability' %}
-                        <div class="ability-card {% if card.is_used %}used{% endif %}">
-                            <h4 style="margin: 0 0 10px 0; color: #fff;">⚡ {{ card.name }}</h4>
+                    {% if card.type.value == 'ability' or (card.type.value == 'profession' and card.interaction_type) %}
+                        
+                        <div class="ability-card {% if card.is_used %}used{% endif %}"
+                             {% if card.type.value == 'profession' %}style="border: 2px solid #ffa502;"{% endif %}>
+                            
+                            <h4 style="margin: 0 0 10px 0; color: #fff;">
+                                {% if card.type.value == 'profession' %}💼{% else %}⚡{% endif %} 
+                                {{ card.name }}
+                            </h4>
+                            
                             <p style="font-size: 0.85em; color: #ccc;">{{ card.description }}</p>
                             
                             {% if not card.is_used %}
-                                <button class="btn secondary btn-sm" 
+                                <button class="btn secondary btn-sm use-ability-btn" 
                                         style="margin-top: 10px;"
-                                        hx-get="/games/{{ game.id }}/use_ability?actor_tg_id={{ me.tg_user_id }}&ability_card_id={{ card.id }}&target_tg_id={{ me.tg_user_id }}"
-                                        hx-target="#action-log"
-                                        hx-swap="innerHTML">
+                                        data-ability-id="{{ card.id }}"
+                                        data-actor-tg-id="{{ me.tg_user_id }}">
                                     Применить
                                 </button>
                             {% else %}
@@ -122,14 +243,182 @@
         <div id="action-log" class="log-box" style="margin-top: 20px;"></div>
     </section>
     {% endif %}
+    {% if game.current_phase == 'voting' %}
+<section id="voting-booth" style="background: #1a1a1a; padding: 20px; border: 2px solid #ffa502; border-radius: 10px; margin-top: 20px;">
+    <h2 style="color: #ffa502; text-align: center;">⚖️ Судный час</h2>
+    
+    {% if me.is_dead %}
+        <p style="text-align: center; color: #a55eea;">👻 Призраки не имеют права голоса. Наблюдайте за судом живых.</p>
+    {% else %}
+    <p style="text-align: center;">Выберите, кто должен покинуть бункер:</p>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 20px;">
+        {% for p in players %}
+            {% if not p.is_dead %}
+            <button class="btn secondary vote-btn" data-target-tg="{{ p.tg_user_id }}">
+                {{ p.name }} {% if p.id == me.id %}(Вы){% endif %}
+            </button>
+            {% endif %}
+        {% endfor %}
+        <button class="btn primary vote-btn" data-target-tg="">Против никого (Skip)</button>
+    </div>
+        {% endif %}
+</section>
+{% endif %}
 
+<script>
+    // Обработка клика по кнопке голосования
+    document.querySelectorAll('.vote-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetTg = this.dataset.targetTg;
+            const url = `/game/{{ game.id }}/cast_vote?voter_tg_id={{ me.tg_user_id }}${targetTg ? '&target_tg_id=' + targetTg : ''}`;
+            
+            htmx.ajax('POST', url, { target: '#action-log', swap: 'innerHTML' }).then(() => {
+                document.getElementById('voting-booth').innerHTML = "<h3 style='text-align:center; color:#2ed573;'>Ваш голос принят! Ждем остальных...</h3>";
+            });
+        });
+    });
+</script>
 </div>
 
 <script>
-    if ("{{ game.current_phase }}" === "narrative") {
-        setInterval(() => {
-            location.reload();
-        }, 3000);
+    // --- УМНАЯ СИНХРОНИЗАЦИЯ (Работает для истории и для игрового стола) ---
+    let currentPhase = "{{ game.current_phase }}";
+    let currentHash = null;
+
+    setInterval(() => {
+        fetch(`/game/{{ game.id }}/sync`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return;
+
+                // 1. Проверяем смену фазы 
+                if (data.phase !== currentPhase) {
+                    location.reload();
+                }
+
+                // 2. Проверяем изменения на игровом столе
+                if (currentHash === null) {
+                    currentHash = data.hash; 
+                } else if (data.hash !== currentHash) {
+                    // Защита: Не перезагружаем страницу, если игрок сейчас целится способностью
+                    if (!document.body.classList.contains('targeting-mode')) {
+                        location.reload();
+                    }
+                }
+            })
+            .catch(err => console.error("Ошибка синхронизации:", err));
+    }, 2000); 
+
+    // --- ОБЪЕДИНЕННАЯ ЛОГИКА ПРИЦЕЛИВАНИЯ ---
+    let activeAbilityId = null;
+    let activeActorTgId = null;
+    let revealMode = false;
+    let gameId = "{{ game.id }}";
+
+    const revealBtn = document.getElementById('reveal-mode-btn');
+    if (revealBtn) {
+        revealBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            resetTargeting(); 
+            
+            revealMode = !revealMode;
+            if (revealMode) {
+                this.classList.add('active-aim');
+                this.innerText = "Укажите СВОЮ карту в таблице...";
+                document.body.classList.add('targeting-mode');
+                document.getElementById('action-log').innerHTML = "<span style='color:#2ed573;'>Режим вскрытия: Кликните по СВОЕЙ характеристике!</span>";
+            } else {
+                resetRevealMode();
+            }
+        });
+    }
+
+    document.querySelectorAll('.use-ability-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            resetRevealMode(); 
+            
+            if (this.classList.contains('active-aim')) {
+                resetTargeting();
+                return;
+            }
+
+            resetTargeting();
+            activeAbilityId = this.dataset.abilityId;
+            activeActorTgId = this.dataset.actorTgId;
+            
+            this.classList.add('active-aim');
+            document.body.classList.add('targeting-mode');
+            this.innerText = "Выберите цель...";
+            
+            document.getElementById('action-log').innerHTML = "<span style='color:#ffa502;'>Режим прицеливания: Кликните по нужной карточке в таблице!</span>";
+        });
+    });
+
+    document.querySelectorAll('.targetable-cell').forEach(cell => {
+        cell.addEventListener('click', function() {
+            let targetTgId = this.dataset.targetTgId;
+            let targetCardId = this.dataset.targetCardId;
+
+            // РЕЖИМ ВСКРЫТИЯ
+            if (revealMode) {
+                if ("{{ is_my_turn }}" === "False") {
+                    alert("Не твоя очередь!");
+                    resetRevealMode();
+                    return;
+                }
+                if (targetTgId !== "{{ me.tg_user_id }}") {
+                    alert("Нельзя вскрыть чужую карту! Выберите свою.");
+                    return;
+                }
+                
+                htmx.ajax('GET', `/game/${gameId}/self_reveal?card_id=${targetCardId}&tg_id={{ me.tg_user_id }}`, {
+                    target: '#action-log', swap: 'innerHTML'
+                }).then(() => {
+                    let logText = document.getElementById('action-log').innerText;
+                    if (!logText.includes("Эта иконка уже раскрыта")) {
+                        setTimeout(() => location.reload(), 1500); 
+                    }
+                });
+                
+                resetRevealMode();
+                return;
+            }
+
+            // РЕЖИМ СПОСОБНОСТИ
+            if (activeAbilityId) {
+                let url = `/games/${gameId}/use_ability?actor_tg_id=${activeActorTgId}&ability_card_id=${activeAbilityId}&target_tg_id=${targetTgId}`;
+                if (targetCardId) { url += `&target_card_id=${targetCardId}`; }
+
+                htmx.ajax('GET', url, {target: '#action-log', swap: 'innerHTML'}).then(() => {
+                    let logText = document.getElementById('action-log').innerText;
+                    if (!logText.includes("Ошибка")) {
+                        setTimeout(() => location.reload(), 2500);
+                    }
+                });
+                resetTargeting();
+            }
+        });
+    });
+
+    function resetTargeting() {
+        activeAbilityId = null;
+        activeActorTgId = null;
+        document.body.classList.remove('targeting-mode');
+        document.querySelectorAll('.use-ability-btn').forEach(b => {
+            b.classList.remove('active-aim');
+            b.innerText = "Применить";
+        });
+    }
+
+    function resetRevealMode() {
+        revealMode = false;
+        document.body.classList.remove('targeting-mode');
+        if (revealBtn) {
+            revealBtn.classList.remove('active-aim');
+            revealBtn.innerText = "🔓 Вскрыть характеристику";
+        }
     }
 </script>
 {% endblock %}

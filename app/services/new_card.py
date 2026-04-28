@@ -27,6 +27,7 @@ def generate_full_character():
         hlth = card_heal()
         data[f'heal_status{i}'] = hlth['heal']
         data[f'heal_appearance{i}'] = hlth['is_appearance']
+        data[f'heal_level{i}'] = hlth['health_level'] # <-- Вытягиваем уровень
         
         # Job
         job_ = card_job()
@@ -122,11 +123,11 @@ def generate_chaos_card(chaos_level: int = None):
 def card_biology():
     gender = match.randint(0, 1)
 
-    rasen = match.randint(0, 13)
+    rasen = match.randint(-4, 13)
 
-    if  rasen > 3:
+    if  rasen < 6:
         y = 20
-        x = 700
+        x = 200
     else:
         y = 10
         x = 75
@@ -139,6 +140,8 @@ def card_biology():
     }
 
     return card_biology
+
+
 
 def card_appearance():
     # Выбираем одно из 6 состояний внешности (0-5)
@@ -195,23 +198,18 @@ def card_appearance():
     return card_appearance
 
 def card_heal():
-    healx = match.randint(0, 100)
+    # Генерируем степень тяжести в процентах (от 10% до 95%)
+    severity = match.randint(10, 95) 
+    
     is_appearance = match.randint(0, 15)
 
-    if healx > 90:
-        healx = 100
-        is_appearance = 0
-
-
-    
-
-    card_heal = {
-        "heal": heal[healx//20],
-        "is_appearance": heal_location[is_appearance]
-
+    card_heal_dict = {
+        "heal": severity, # Передаем число для ИИ
+        "is_appearance": heal_location[is_appearance],
+        "health_level": severity # Сохраняем число для записи в power_level
     }
 
-    return card_heal
+    return card_heal_dict
 
 def card_job():
     is_job_nice = match.randint(0, 1)
@@ -308,7 +306,6 @@ def inventory():
 
 
 # Словари
-
 genders = {0: "мужчина", 1: "женщина"}
 
 AbilityType={
@@ -334,9 +331,9 @@ SkillType = {
 }
 
 rase = {
-    0: "человек", 1: "Орк", 2: "гном", 3: "Дворф", 4: "эльф",
+    -4: "человек", -3: "человек", -2: "человек", -1: "человек", 0: "человек", 1: "Орк", 2: "гном", 3: "Дворф", 19: "эльф",
     5: "кошко-человек", 6: "кроликочеловек", 7: "ящеролюд",
-    8: "вампир", 9: "оборотень", 10: "зомби", 11: "робот",
+    8: "вампир", 4: "оборотень", 10: "зомби", 11: "робот",
     12: "инопланетянин", 13: "живой скелет"
 }
 
@@ -358,14 +355,6 @@ appearance = {
     5: "Сексуальная внешность"
 }
 
-heal = {
-    0: "одна нога в могиле",
-    1: "тяжёлый недуг, который мешает жить",
-    2: "серьёзный недуг, но не смертельный",
-    3: "лёгкий недуг, который не мешает жить",
-    4: "недуг не серъёзный",
-    5: "Идеально здоров"
-}
 
 heal_location = {
     0: "Здоровым выглядит",
@@ -382,7 +371,7 @@ heal_location = {
     11: "Конечности (пальцы рук, ног, когти)",
     12: "Внутренний мир (селезенка, аппендикс, почки)",
     13: "Пищеварительный тракт (желудок, кишечник, пупок)",
-    14: "Смешные органы (мизинец левой ноги, шишковидная железа, запасная печень)",
+    14: "прочие органы (мизинец левой ноги, шишковидная железа, запасная печень)",
     15: "Абсурдные отростки (Гнилой хвост, Вторая жопа, щупальца, Чешуя)"
 }
 

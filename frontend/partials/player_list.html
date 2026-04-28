@@ -1,7 +1,10 @@
 {% if game.status.value == 'in_progress' %}
-    <script>
-        window.location.href = "/game/{{ game.id }}/play";
-    </script>
+<script>
+    if ("{{ game.status.name }}" === "IN_PROGRESS" || "{{ game.status }}" === "IN_PROGRESS") {
+        // Добавляем айдишник, чтобы игрок не превратился в Черрешню!
+        window.location.href = "/game/{{ game.id }}/play?tg_id={{ current_tg_id }}";
+    }
+</script>
 {% endif %}
 
 <ul style="list-style: none; padding: 0;">

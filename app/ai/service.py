@@ -3,7 +3,7 @@ import json
 from app.ai.respone import format_card_prompt  # Твой файл с промптами
 from app.ai.parser import parse_random_response, parse_ai_response        # Твой парсер
 from app.DB.models import Card, CardType, ActionEnum
-from app.ai.respone import format_card_prompt
+
 import asyncio
 import time
 import re
@@ -12,19 +12,25 @@ from app.DB.database import SessionLocal
 from app.DB.crud import create_card
 from app.DB.schemas import CardCreate
 
+AbilityType = {
+    1: "heal",
+    3: "steal",
+    2: "spoil",
+    4: "gift",
+    5: "spawn",
+    6: "change_gender",
+    7: "reveal",
+    8: "swap_trait",
+    9: "revive",
+    0: None
+}
 
-
-
-async def ai_response(cat, data: dict,) -> str:
+async def ai_response(cat, data: dict) -> str:
     start_time = time.perf_counter()
 
     prompt = format_card_prompt(cat, data)
-
-    
-
     system_content = prompt[0]
     user_content = prompt[1]
-
 
     client = AsyncClient()
     print("отправили запрос")
@@ -47,8 +53,6 @@ async def ai_response(cat, data: dict,) -> str:
                 }
             )
             content = response['message']['content']
-            # Проверяем, что нейросеть выдала валидный JSON
-            # Если сломанный - уйдет в except и попробует заново
             match = re.search(r'```json\s+(.*?)\s+```', content, re.DOTALL)
 
             if match:
@@ -63,15 +67,16 @@ async def ai_response(cat, data: dict,) -> str:
             if isinstance(datar, dict) and "cards" in datar:
                 datar = datar["cards"]
 
-            return datar # Возвращаем список словарей
+            return datar 
             
         except json.JSONDecodeError:
             print(f"⚠️ Ошибка JSON на попытке {attempt + 1}. Пробуем перегенерировать... {content}")
             continue
             
     print("❌ Не удалось сгенерировать валидный JSON за 3 попытки.")    
-    return "{}" # Заглушка, чтобы бот не упал с ошибкой
-semaphore = asyncio.Semaphore(1)  # Ограничиваем до 5 одновременных запросов к AI
+    return "{}" 
+
+semaphore = asyncio.Semaphore(1)  # Ограничиваем до 1 одновременного запроса к AI
 
 async def safe_ai_response(cat, data):
     async with semaphore:
@@ -87,24 +92,28 @@ async def main1(batch_data: dict):
     ]
 
     all_results = {}
-    db = SessionLocal() # Открываем сессию к БД
+    db = SessionLocal() 
 
     try:
         for cat in categories:
-            print(f"⌛ Начинаю генерацию категории: {cat} (3 карточки)...")
+            print(f"⌛ Обработка категории: {cat} (3 карточки)...")
             try:
-                # Внимание: правильный порядок аргументов (cat, batch_data)
-                result = await safe_ai_response(cat, batch_data) 
-                all_results[cat] = result
+                # === ОПТИМИЗАЦИЯ: ПРОПУСКАЕМ ИИ ДЛЯ БИОЛОГИИ И ВНЕШНОСТИ ===
+                if cat in ["BIOLOGY", "APPEARANCE"]:
+                    result = [{"name": "", "description": ""} for _ in range(3)]
+                    all_results[cat] = result
+                    print(f"⚡ Категория {cat} сгенерирована локально (без ИИ).")
+                else:
+                    result = await safe_ai_response(cat, batch_data) 
+                    all_results[cat] = result
 
-                # Сразу сохраняем полученные 3 карточки в базу!
                 await process_batch_and_save(db, cat, result, batch_data)
                 print(f"💾 Категория {cat} успешно сохранена в БД.")
 
             except Exception as e:
                 print(f"❌ Ошибка генерации или сохранения {cat}: {e}")
     finally:
-        db.close() # Обязательно закрываем подключение к БД в конце
+        db.close()
 
     end_time = time.perf_counter()
     duration = end_time - start_time
@@ -115,108 +124,72 @@ async def main1(batch_data: dict):
     return all_results
 
 
-
 async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_data: dict):
-    """
-    Объединяет текст от ИИ и цифры из рандома, затем пишет в БД по строгим правилам.
-    """
-    # Превращаем строку категории в значение для Enum (например, "INVENTORY_1" -> "inventory")
     raw_type = cat.lower().replace("_1", "").replace("_2", "")
     if raw_type == "job":
-        raw_type = "profession" # В твоем CardType работа называется profession
+        raw_type = "profession" 
         
     for i in range(1, 4):
-        # Защита на случай, если ИИ вернул меньше 3 карточек
         ai_card = ai_list[i-1] if i-1 < len(ai_list) else {"name": "Ошибка ИИ", "description": ""}
         
-        # Базовые значения (по умолчанию берем от ИИ)
         final_name = ai_card.get("name", "Без названия")
         final_desc = ai_card.get("description", "")
         skill = 0
         power = 0
         chance = 0
-        chaos_level =0
+        chaos_level = 0
         
-        
-        # 1. БИОЛОГИЯ (Свое имя и описание, ИИ игнорируем)
         if cat == "BIOLOGY":
             final_name = str(batch_data.get(f'race{i}', 'Неизвестно'))
             final_desc = f"Пол: {batch_data.get(f'gender{i}')}, Возраст: {batch_data.get(f'old{i}')} лет."
             
-        # 2. ВНЕШНОСТЬ (Имя от ИИ, описание свое)
         elif cat == "APPEARANCE":
-            final_desc = f"Рост: {batch_data.get(f'height{i}')}см, Вес: {batch_data.get(f'mass{i}')}кг. Телосложение: {batch_data.get(f'appearance_desc{i}')}."
+            final_name = str(batch_data.get(f'appearance_desc{i}'))
+            final_desc = f"Рост: {batch_data.get(f'height{i}')} см, Вес: {batch_data.get(f'mass{i}')} кг."
             
-        # 3. ЗДОРОВЬЕ (Все от ИИ)
         elif cat == "HEALTH":
-            pass 
+            chaos_level = batch_data.get(f'heal_level{i}', 50)
             
-        # 4. РАБОТА (ИИ + данные скрипта)
         elif cat == "JOB":
             skill = batch_data.get(f'job_skill{i}', 0)
             
-            # Проверяем, есть ли способность у работы
             can_be_ability = batch_data.get(f'job_can_be_ability{i}')
             ab_id = batch_data.get(f'job_ability_ID{i}', 10)
             
             if can_be_ability:
                 power = ab_id
                 ab_type = batch_data.get(f'job_ability_type{i}', '')
-                chance = batch_data.get(f'job_skill{i}', '')
+                chance = batch_data.get(f'job_skill{i}', 0) # Исправил chance
                 chaos_level = 1
                 if chance > 0:
-                    final_desc += f"\n[способность: {ab_type}. Шанс использования на ком-то: {chance}%, шанс на себе: {chance-(chance//(10*9))}%]"
+                    final_desc += f"\n[Способность: {ab_type}. Шанс на других: {chance}%, на себе: {chance-(chance//(10*9))}%]"
                 else: 
-                    final_desc += f"\n[способность: {ab_type}.]"
-        # 5, 6, 7. ХОББИ, ФАКТ, СТРАХ (Все от ИИ)
-        elif cat in ["HOBBY", "FACT", "PHOBIA"]:
+                    final_desc += f"\n[Способность: {ab_type}.]"
+                    
+        elif cat in ["HOBBY", "FACT", "PHOBIA", "INVENTORY_1", "INVENTORY_2"]:
             pass
             
-        # 8, 9. ИНВЕНТАРЬ (Все от ИИ)
-        elif cat in ["INVENTORY_1", "INVENTORY_2"]:
-            pass
-            
-        # 10, 11. СПОСОБНОСТИ (ИИ + ID + стандартное объяснение)
         elif cat in ["ABILITY_1", "ABILITY_2"]:
             prefix = "abil1" if cat == "ABILITY_1" else "abil2"
             
             ab_type = batch_data.get(f'{prefix}_type{i}', '')
             ab_id = batch_data.get(f'{prefix}_ID{i}', 10)
             
-            power = ab_id # Записываем ID способности
+            power = ab_id 
             final_desc += f"\n[Эффект: {ab_type}]"
-
             chaos_level = 1
 
-        # Формируем Pydantic схему и отправляем в CRUD
         new_card_data = CardCreate(
             type=CardType(raw_type),
             name=final_name,
             description=final_desc,
-            skill_level=skill, #
-            power_level=skill + chaos_level, #способность
-            base_success_chance = chance,
+            skill_level=skill, 
+            power_level=skill + chaos_level, 
+            base_success_chance=chance,
             chaos_level=chaos_level,
-            interaction_type = AbilityType[power]
+            interaction_type=AbilityType[power] if power in AbilityType else None
         )
         
-        # Вызываем функцию создания из crud.py
         create_card(db, new_card_data)
         
     return True
-
-
-
-
-AbilityType={
-    1: "heal",
-    3: "steal",
-    2: "spoil",
-    4: "gift",
-    5: "spawn",
-    6: "change_gender",
-    7: "reveal",
-    8: "swap_trait",
-    9: "revive",
-    0: None
-}
