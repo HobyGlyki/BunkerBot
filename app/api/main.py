@@ -1,13 +1,13 @@
 from fastapi import FastAPI, Form, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 import os
 import json
+import re
 
 
 from app.services.new_card import generate_full_character
@@ -17,6 +17,7 @@ from app.services.action_resolver import resolve_ability
 from app.ai.parser import parse_ai_response
 from app.ai.service import main1
 from app.ai.new_game_ai import generate_disaster_ai
+from app.ai.end_game import generate_finale_ai
 
 from app.DB.database import SessionLocal
 from app.DB.models import Card, GameSession, GameStatus, Player, ActionEnum, CardType, Vote
@@ -51,21 +52,20 @@ app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Твой Jinja2 уже настроен: templates = Jinja2Templates(directory="frontend")
 
 @app.get("/", response_class=HTMLResponse)
-async def index_page(request: Request):
-    """Главная страница"""
-    # Явно указываем request и name
-    return templates.TemplateResponse(request=request, name="index.html")
-
-@app.get("/games_list", response_class=HTMLResponse)
-async def games_page(request: Request, db: Session = Depends(get_db)):
-    """Страница со списком всех игр"""
-    games = db.query(GameSession).all()
+async def games_page(request: Request, tg_id: int = None, name: str = None, db: Session = Depends(get_db)):
+    """Главная страница со списком игр. Сюда заходят из ТГ бота!"""
     
-    # Контекст передаем в аргумент context
+    # Берем только игры, которые еще ждут игроков
+    games = db.query(GameSession).filter(GameSession.status == GameStatus.WAITING).all()
+    
     return templates.TemplateResponse(
         request=request, 
-        name="games.html", 
-        context={"games": games}
+        name="index.html", 
+        context={
+            "games": games,
+            "current_tg_id": tg_id, # Передаем айдишник из ТГ
+            "current_name": name    # Передаем имя из ТГ
+        }
     )
 
 
@@ -145,11 +145,13 @@ async def game_play_page(request: Request, game_id: int, tg_id: int = 123, db: S
     current_player = next((p for p in all_players if p.tg_user_id == tg_id), None)
  # Берем только живых игроков для расчета очереди
     alive_players = [p for p in all_players if not p.is_dead]
+    alive_count = len(alive_players)
     active_player = alive_players[game.active_player_idx % len(alive_players)] if alive_players else None
     
     if not current_player:
         return "Вы не участвуете в этой игре"
-
+    
+    
     return templates.TemplateResponse(
         request=request, 
         name="play.html", 
@@ -157,7 +159,8 @@ async def game_play_page(request: Request, game_id: int, tg_id: int = 123, db: S
             "game": game,
             "players": all_players,
             "me": current_player,
-            "active_player": active_player, 
+            "active_player": active_player,
+            "alive_count": alive_count, 
             "is_my_turn": (current_player.id == active_player.id) if current_player and active_player else False,
             "columns": ["biology", "appearance", "health", "profession", "fact", "hobby", "phobia", "inventory_1", "inventory_2"],
             "is_host": (tg_id == 123),
@@ -228,13 +231,13 @@ async def player_exit(tg_id: int, db: Session = Depends(get_db)):
     db.close()
     return {"status": "exited"}
 
-@app.get("/initgame")
+@app.get("admin/initgame")
 async def new():
     seed_inventory()
     seed_extra_cards()
     seed_biology_and_appearance(count=15)
 
-@app.get("/new_cards")
+@app.get("admin/new_cards")
 async def index():
     strs = generate_full_character()
     new_card = await main1(strs)
@@ -256,11 +259,9 @@ async def get_all_cards(db: Session = Depends(get_db)):
         "cards": cards
     }
 
-@app.get("/playerinfo")
+@app.get("admin/playerinfo")
 async def playerinfo(tg_id: int, db: Session = Depends(get_db)):
-    print(tg_id)
     info = get_player_cards(db, tg_id)
-    print(info)
     return info
 
 @app.get("/next_turn")
@@ -351,9 +352,10 @@ async def admin_reset(db: Session = Depends(get_db)):
     if success:
         # Возвращаем простой скрипт, который выведет уведомление и вернет на главную
         return HTMLResponse(content="""
+            <span>🔥 Полный сброс базы данных</span>
             <script>
                 alert('База успешно обнулена: карты свободны, игры в ожидании!');
-                window.location.href = '/';
+                window.location.href = '/admin';
             </script>
         """)
     else:
@@ -428,7 +430,8 @@ async def sync_game(game_id: int, db: Session = Depends(get_db)):
     
     return {
         "phase": game.current_phase,
-        "hash": state_hash
+        "hash": state_hash,
+        "status": game.status.value, # Передаем статус (waiting, in_progress, finished)
     }
 
 
@@ -497,3 +500,166 @@ async def start_voting(game_id: int, tg_id: int, db: Session = Depends(get_db)):
     game.current_phase = "voting"
     db.commit()
     return {"status": "voting_started"}
+
+    # 1. Тотальное вскрытие карт (Фаза перед эпилогом)
+@app.get("/game/{game_id}/reveal_all_cards")
+async def reveal_all_cards(game_id: int, tg_id: int, db: Session = Depends(get_db)):
+    # Только хост может вскрыть карты
+    if tg_id != 123:
+        return HTMLResponse("<span style='color:red;'>Только ведущий может вскрыть карты!</span>")
+        
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    players = db.query(Player).filter(Player.game_id == game_id).all()
+    
+    # Вскрываем абсолютно все карты всех игроков
+    for p in players:
+        db.query(Card).filter(Card.player_id == p.id).update({"is_revealed": True})
+    
+    game.current_phase = "total_reveal"
+    db.commit()
+    return HTMLResponse("<script>location.reload();</script>")
+# 2. Переход на страницу финала (с передачей tg_id)
+@app.get("/game/{game_id}/finish_page", response_class=HTMLResponse)
+async def finish_page(request: Request, game_id: int, tg_id: int = 123, db: Session = Depends(get_db)):
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+    
+    # Смена статуса игры (только если еще не завершена)
+    if game.status != GameStatus.FINISHED:
+        game.status = GameStatus.FINISHED 
+        db.commit()
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="finish.html", 
+        context={
+            "game": game,
+            "is_host": (tg_id == 123),
+            "current_tg_id": tg_id
+        }
+    )
+
+# 3. Эндпоинт для ИИ-вердикта (с проверкой прав)
+@app.get("/game/{game_id}/get_ai_verdict")
+async def get_ai_verdict(game_id: int, tg_id: int = None, db: Session = Depends(get_db)):
+    game = db.query(GameSession).filter(GameSession.id == game_id).first()
+
+    # 1. Если вердикт уже готов — отдаем всем
+    if game.finale_text:
+        return HTMLResponse(game.finale_text)
+    # 2. Если текста нет и это ВЕДУЩИЙ — запускаем расчет
+    if tg_id == 123 and not game.finale_text:
+
+        alive_players = db.query(Player).filter(Player.game_id == game_id, Player.is_dead == False).all()
+        
+        # --- УМНОЕ ФОРМИРОВАНИЕ ДОСЬЕ ---
+        players_text = ""
+        for p in alive_players:
+            # Достаем карты, сразу отбрасывая чистые способности (ability)
+            cards = db.query(Card).filter(
+                Card.player_id == p.id, 
+                Card.type != CardType.ABILITY 
+            ).all()
+            
+            cards_info_list = []
+            for c in cards:
+                # На всякий случай проверяем тип (если у тебя он с маленькой буквы)
+                if c.type.value == 'ability':
+                    continue
+                    
+                # МАГИЯ: Вырезаем все игровые механики, которые мы прятали в квадратные скобки [ ]
+                # Например, "[Способность: лечение. Шанс: 69%]" просто исчезнет из текста
+                clean_desc = re.sub(r'\[.*?\]', '', c.description).strip()
+                
+                cards_info_list.append(f"- {c.type.value}: {c.name} ({clean_desc})")
+                
+            cards_info = "\n  ".join(cards_info_list)
+            players_text += f"Игрок {p.name}:\n  {cards_info}\n\n"
+        # ---------------------------------
+        
+        # Отправляем очищенный текст в ИИ
+        raw_verdict = await generate_finale_ai(game, players_text)
+        
+        verdict_html = f"""
+            <div style='color: #e0e0e0; font-size: 1.15em; line-height: 1.8; text-align: left; background: #1a1a1a; padding: 30px; border-radius: 10px; border-left: 5px solid #2ed573;'>
+                {raw_verdict}
+            </div>
+        """
+        
+        game.finale_text = verdict_html
+        db.commit()
+
+        return HTMLResponse(verdict_html)
+    
+    return HTMLResponse("""
+        <div class="loading-box">
+            <div class="spinner" style="..."></div>
+            <p style="color: #aaa; font-style: italic;">Ведущий определяет судьбу убежища... Ждите.</p>
+        </div>
+    """)
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
+    """Главная страница панели администратора"""
+    # Собираем краткую статистику для дашборда
+    games_count = db.query(GameSession).count()
+    cards_count = db.query(Card).count()
+    players_count = db.query(Player).count()
+    
+    # Получаем список активных игр
+    active_games = db.query(GameSession).order_by(GameSession.id.desc()).limit(5).all()
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="admin.html", 
+        context={
+            "games_count": games_count,
+            "cards_count": cards_count,
+            "players_count": players_count,
+            "active_games": active_games
+        }
+    )
+
+
+
+@app.get("/admin/custom_game_form", response_class=HTMLResponse)
+async def custom_game_form(request: Request):
+    return templates.TemplateResponse(request=request, name="custom_create.html")
+
+@app.post("/create_custom_game")
+async def create_custom_game(
+    disaster: str = Form(...),
+    bunker_desc: str = Form(...),
+    capacity: int = Form(...),
+    area: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    # 1. Генерируем случайные технические данные (годы, люди, еда)
+    tech_data = generate_game(db)
+    
+    # 2. Берем реальные предметы из твоей базы
+    real_items = get_random_bunker_items(db, count=4)
+    inventory_text = ", ".join(real_items) if real_items else "Пустые полки"
+
+    # 3. Создаем игру на основе ТВОЕГО текста
+    new_game = GameSession(
+        status=GameStatus.WAITING,
+        disaster_description=disaster,
+        bunker_capacity=capacity,
+        bunker_years=tech_data["bunker_years"],
+        bunker_features_json={
+            "area": area,
+            "population_left": tech_data["human_left"],
+            "eat_years": tech_data["eat_count"],
+            "inventory": inventory_text,
+            "food_detailed": "Запасы сформированы согласно вашему сценарию.",
+            "bunker_detailed": bunker_desc
+        }
+    )
+
+    db.add(new_game)
+    db.commit()
+    db.refresh(new_game)
+    
+    # Редиректим тебя сразу в лобби этой игры как хоста
+    return RedirectResponse(url=f"/lobby/{new_game.id}?tg_id=123", status_code=303)

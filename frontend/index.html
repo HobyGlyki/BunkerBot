@@ -1,18 +1,25 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="hero">
-    <h1>Конец света уже здесь.</h1>
-    <p>Создай новое убежище или присоединись к выжившим.</p>
-    
-    <button class="btn primary" 
-            hx-get="/create_game" 
-            hx-target="#game-result" 
-            hx-swap="innerHTML">
-        Сгенерировать Бункер
-    </button>
+<h2>Доступные сессии</h2>
 
-    <div id="game-result" class="result-box">
+<div class="games-grid">
+    {% for game in games %}
+        <div class="game-card">
+            <h3>Лобби #{{ game.id }}</h3>
+            <p><strong>Статус:</strong> <span class="status {{ game.status.value }}">{{ game.status.value }}</span></p>
+            <p><strong>Вместимость:</strong> {{ game.bunker_capacity }} чел.</p>
+            
+            {% if game.status.value == 'waiting' %}
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <a href="/lobby/{{ game.id }}?tg_id={{ current_tg_id }}&name={{ current_name }}" class="btn secondary">Войти (Игрок)</a>
+                </div>
+            {% else %}
+                <button class="btn disabled" disabled>Игра идет</button>
+            {% endif %}
         </div>
+    {% else %}
+        <p class="empty-msg">Нет созданных игр. Возвращайся на главную и создай новую!</p>
+    {% endfor %}
 </div>
 {% endblock %}

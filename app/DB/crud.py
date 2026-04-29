@@ -68,18 +68,40 @@ def get_players_count(db: Session, game_id: int) -> int:
     return db.query(models.Player).filter(models.Player.game_id == game_id).count()
 
 def join_player_to_game(db: Session, game_id: int, tg_user_id: int, name: str):
-    """Добавляет игрока в лобби, если он еще не там."""
-    db_player = db.query(models.Player).filter(
-        models.Player.game_id == game_id, 
-        models.Player.tg_user_id == tg_user_id
-    ).first()
+    """Добавляет игрока в игру или переносит его из старой сессии в новую."""
     
-    if not db_player:
-        db_player = models.Player(game_id=game_id, tg_user_id=tg_user_id, name=name)
-        db.add(db_player)
+    # 1. Ищем, существует ли уже игрок с таким Telegram ID в базе
+    existing_player = db.query(Player).filter(Player.tg_user_id == tg_user_id).first()
+    
+    if existing_player:
+        # Если он УЖЕ сидит в нужном лобби, ничего не делаем, просто возвращаем его
+        if existing_player.game_id == game_id:
+            return existing_player
+            
+        # Если он был в ДРУГОМ лобби, заставляем старую игру его забыть:
+        # Переносим в новую игру и воскрешаем (если он умер в прошлой)
+        existing_player.game_id = game_id
+        existing_player.is_dead = False
+        
+        # Сжигаем все его старые карточки и голоса из прошлой игры!
+        db.query(Card).filter(Card.player_id == existing_player.id).delete()
+        db.query(Vote).filter(Vote.voter_id == existing_player.id).delete()
+        
         db.commit()
-        db.refresh(db_player)
-    return db_player
+        db.refresh(existing_player)
+        return existing_player
+
+    # 2. Если игрока вообще не было в базе, создаем его с нуля
+    new_player = Player(
+        game_id=game_id, 
+        tg_user_id=tg_user_id, 
+        name=name,
+        is_dead=False
+    )
+    db.add(new_player)
+    db.commit()
+    db.refresh(new_player)
+    return new_player
 
 def distribute_cards_to_all(db: Session, game_id: int):
     """Раздает каждому игроку по 1 карте каждого типа из базы."""
@@ -137,7 +159,8 @@ def reset_entire_database(db: Session):
         db.query(GameSession).update({
             GameSession.status: GameStatus.WAITING,
             GameSession.current_round: 1,
-            GameSession.current_phase: "narrative"
+            GameSession.current_phase: "narrative",
+            GameSession.finale_text: None
         })
         
         db.commit()

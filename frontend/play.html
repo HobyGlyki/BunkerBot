@@ -41,6 +41,15 @@
         70% { box-shadow: 0 0 0 10px rgba(46, 213, 115, 0); }
         100% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0); }
     }
+
+    /* ... твои стили из прошлого раза ... */
+    .bunker-footer {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        padding: 20px;
+        margin-top: 40px;
+        border-radius: 10px;
+    }
 </style>
 
 <div class="game-container">
@@ -241,6 +250,49 @@
         </div>
         
         <div id="action-log" class="log-box" style="margin-top: 20px;"></div>
+        <section id="game-board">
+        {% if is_host %}
+        <div class="admin-finish-panel" style="margin-top: 30px; text-align: center; background: rgba(255, 71, 87, 0.1); padding: 15px; border-radius: 8px;">
+            <h4 style="color: #ff4757;">Панель Ведущего</h4>
+            
+            {% if game.current_phase == 'total_reveal' %}
+                <a href="/game/{{ game.id }}/finish_page" class="btn secondary" style="background: #2ed573; text-decoration: none; display: inline-block;">
+                    🏁 ОКОНЧИТЬ ИГРУ И УЗНАТЬ СУДЬБУ
+                </a>
+            {% elif alive_count <= game.bunker_capacity %}
+                <button class="btn primary" 
+                        hx-get="/game/{{ game.id }}/reveal_all_cards?tg_id={{ me.tg_user_id }}" 
+                        hx-swap="none">
+                    💥 ВСКРЫТЬ ВСЕ КАРТЫ И ПОДГОТОВИТЬ ФИНАЛ
+                </button>
+            {% else %}
+                <p style="color: #888; font-size: 0.9em;">Игра продолжается (Выживших: {{ alive_count }}, Мест: {{ game.bunker_capacity }})</p>
+                <button class="btn" style="background: #444;" hx-post="/game/{{ game.id }}/start_voting?tg_id={{ me.tg_user_id }}" hx-swap="none">Начать голосование</button>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="bunker-footer">
+            <h3 style="color: #ffa502; margin-top: 50;">📦 Ресурсы Убежища</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <p><strong>Вместимость:</strong> {{ game.bunker_capacity }} чел.</p>
+                    <p><strong>Срок выживания:</strong> {{ game.bunker_years }} лет</p>
+                </div>
+                <div>
+                    <p><strong>Еда:</strong> {{ game.bunker_features_json.food_detailed }}</p>
+                    <p><strong>Инвентарь:</strong> {{ game.bunker_features_json.inventory }}</p>
+                </div>
+            </div>
+            <p style="font-size: 0.85em; color: #666; margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
+                Вы можете спуститься сюда в любой момент, чтобы сверить свои шансы на выживание.
+            </p>
+        </div>
+
+        <div id="action-log" class="log-box" style="margin-top: 20px;"></div>
+    </section>
+
+</div>
     </section>
     {% endif %}
     {% if game.current_phase == 'voting' %}
@@ -265,6 +317,8 @@
         {% endif %}
 </section>
 {% endif %}
+
+
 
 <script>
     // Обработка клика по кнопке голосования
@@ -291,7 +345,10 @@
             .then(res => res.json())
             .then(data => {
                 if (data.error) return;
-
+                if (data.status === "finished" || data.status === "FINISHED") {
+                    window.location.href = `/game/{{ game.id }}/finish_page?tg_id={{ me.tg_user_id }}`;
+                    return;
+                }
                 // 1. Проверяем смену фазы 
                 if (data.phase !== currentPhase) {
                     location.reload();

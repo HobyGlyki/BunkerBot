@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="game-container" style="text-align: center; padding-top: 100px;">
+    <h1 style="color: #ffa502; font-size: 2.5em;">ФИНАЛ ИГРЫ</h1>
+    
+    {% if is_host %}
+        <div id="ai-verdict-container" 
+             hx-get="/game/{{ game.id }}/get_ai_verdict?tg_id={{ current_tg_id }}" 
+             hx-trigger="load">
+    {% else %}
+        <div id="ai-verdict-container" 
+             hx-get="/game/{{ game.id }}/get_ai_verdict?tg_id={{ current_tg_id }}" 
+             hx-trigger="every 3s">
+    {% endif %}
+    
+        <div class="loading-box">
+            <div class="spinner" style="margin: 20px auto; border: 4px solid #333; border-top: 4px solid #2ed573; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+            <p style="color: #aaa; font-style: italic;">Анализируем шансы на выживание...</p>
+        </div>
+    </div>
+
+    <div style="margin-top: 50px;">
+        <a href="/" class="btn secondary">Вернуться в главное меню</a>
+    </div>
+</div>
+
+<style>
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+{% endblock %}
