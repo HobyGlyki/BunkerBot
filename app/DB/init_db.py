@@ -1,6 +1,6 @@
 import asyncio
 from app.DB.database import SessionLocal
-from app.DB.crud import create_card
+from app.DB.crud import create_card, hard_wipe_database
 from app.DB.schemas import CardCreate
 from app.DB.models import CardType
 import random as match   
@@ -150,9 +150,10 @@ allarr = [bunker_items, bunker_hobbies, bunker_phobias, bunker_fact]
 
 def seed_inventory():
     db = SessionLocal()
-    print(f"🚀 Начинаю загрузку {len(bunker_items)} предметов в базу...")
+    print(f"Начинаю загрузку {len(bunker_items)} предметов в базу...")
     
     try:
+        hard_wipe_database(db)
         for arr_name in allarr:
             for item_name in arr_name:
                 # Создаем структуру карты. 
@@ -176,9 +177,9 @@ def seed_inventory():
                 # Используем твой crud
                 create_card(db, new_card)
             
-        print("✅ Все предметы успешно добавлены!")
+        return("Все предметы успешно добавлены!")
     except Exception as e:
-        print(f"❌ Произошла ошибка: {e}")
+        print(f"Произошла ошибка: {e}")
     finally:
         db.close()
 

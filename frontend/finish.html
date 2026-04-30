@@ -19,10 +19,19 @@
             <p style="color: #aaa; font-style: italic;">Анализируем шансы на выживание...</p>
         </div>
     </div>
-
+ {% if is_host %}
+    <div style="margin-top: 50px;">
+        <button hx-get="/admin/reset_all" 
+                hx-target="body"
+                class="btn secondary">
+            Вернуться в меню и закончить
+        </button>
+    </div>
+{% else %}
     <div style="margin-top: 50px;">
         <a href="/" class="btn secondary">Вернуться в главное меню</a>
     </div>
+{% endif %}
 </div>
 
 <style>

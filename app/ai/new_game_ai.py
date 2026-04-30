@@ -48,7 +48,7 @@ async def generate_disaster_ai(game_data: dict) -> dict:
 # ...
         
     except Exception as e:
-        print(f"❌ Ошибка генерации катастрофы: {e}")
+        print(f"Ошибка генерации катастрофы: {e}")
         return {
             "disaster_description": "Произошло что-то ужасное, но ИИ об этом промолчал.",
             "bunker_features": "Бетонная коробка с запахом сырости."

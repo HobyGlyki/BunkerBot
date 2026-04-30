@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="hero">
+    <h1>Выживание в Бункере</h1>
+    
+    {% if active_game %}
+    <div style="background: rgba(46, 213, 115, 0.1); border: 2px solid #2ed573; padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+        <h3 style="color: #2ed573; margin-top: 0;">📡 У вас есть активная игра!</h3>
+        <p>Вы всё еще находитесь в лобби #{{ active_game.id }}.</p>
+        <a href="/game/{{ active_game.id }}/play?tg_id={{ current_tg_id }}" class="btn primary">
+            🚀 ВЕРНУТЬСЯ В БУНКЕР
+        </a>
+    </div>
+    <hr style="border: 1px solid #333; margin-bottom: 30px;">
+    {% endif %}
+
 <h2>Доступные сессии</h2>
 
 <div class="games-grid">

@@ -4,7 +4,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "7927953823:AAFDHFIZ7n0nuWGpE2FcLnvHhX6ZTIASS-I"
-ADMIN_ID = 123  # Твой TG ID Хоста!
+ADMIN_ID = 1595208854
 
 # Глобальная переменная: бот стартует "вслепую", без ссылки
 current_web_url = None

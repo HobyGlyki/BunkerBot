@@ -93,7 +93,12 @@
 
     {% if game.current_phase != 'narrative' %}
     <section id="game-board">
-        
+                           {% if game.last_action_log %}
+<div id="action-notifier" 
+     style="background: rgba(46, 213, 115, 0.2); border: 1px solid #2ed573; color: #2ed573; padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; animation: fadeOut 5s forwards;">
+    📡 <strong>Событие:</strong> {{ game.last_action_log }}
+</div>
+{% endif %}
         {% if is_my_turn %}
         <div class="your-turn-alert">
             <h2>🔔 СЕЙЧАС ВАШ ХОД!</h2>
@@ -248,7 +253,7 @@
                 {% endfor %}
             </div>
         </div>
-        
+
         <div id="action-log" class="log-box" style="margin-top: 20px;"></div>
         <section id="game-board">
         {% if is_host %}

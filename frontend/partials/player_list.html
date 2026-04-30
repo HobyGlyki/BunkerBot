@@ -1,20 +1,49 @@
-{% if game.status.value == 'in_progress' %}
-<script>
-    if ("{{ game.status.name }}" === "IN_PROGRESS" || "{{ game.status }}" === "IN_PROGRESS") {
-        // Добавляем айдишник, чтобы игрок не превратился в Черрешню!
-        window.location.href = "/game/{{ game.id }}/play?tg_id={{ current_tg_id }}";
-    }
-</script>
-{% endif %}
-
-<ul style="list-style: none; padding: 0;">
+<ul id="players-container" 
+    data-my-id="{{ current_tg_id }}"
+    data-my-name="{{ current_name }}"
+    data-game-status="{{ game.status.value }}"
+    data-alive-ids="[{% for p in players %}{{ p.tg_user_id }}{% if not loop.last %},{% endif %}{% endfor %}]"
+    style="list-style: none; padding: 0;">
+    
     {% for player in players %}
-        <li style="padding: 10px; background: #222; margin-bottom: 5px; border-radius: 4px;">
-            👤 {{ player.name }} 
-            {% if player.tg_user_id == 123 %} <span style="color: #ff4757; font-size: 0.8em;">[ВЕДУЩИЙ]</span> {% endif %}
+        <li style="padding: 10px; background: #222; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+            <span>
+                👤 {{ player.name }} 
+                {% if player.tg_user_id == 123 %} <span style="color: #ff4757; font-size: 0.8em;">[ВЕДУЩИЙ]</span> {% endif %}
+            </span>
+
+            {% if current_tg_id == 123 and player.tg_user_id != 123 %}
+                <button hx-get="/player/exit?tg_id={{ player.tg_user_id }}" 
+                        hx-target=" " 
+                        hx-swap="outerHTML"
+                        style="background: none; border: none; color: #ff4757; cursor: pointer;">
+                    ✖
+                </button>
+            {% endif %}
         </li>
     {% else %}
         <li>Никого нет...</li>
     {% endfor %}
 </ul>
-<p>Всего: {{ players|length }} / {{ game.bunker_capacity }}</p>
+
+<script>
+    (function() {
+        const container = document.getElementById('players-container');
+        if (!container) return;
+
+        const myId = container.dataset.myId;
+        const myName = container.dataset.myName;
+        const gameStatus = container.dataset.gameStatus;
+        const aliveIds = JSON.parse(container.dataset.aliveIds);
+        
+        // Проверка: если меня выгнали
+        if (!aliveIds.includes(parseInt(myId)) && gameStatus === "waiting") {
+            window.location.href = `/?tg_id=${myId}&name=${encodeURIComponent(myName)}`;
+        }
+
+        // Проверка: если игра началась
+        if (gameStatus === "in_progress") {
+            window.location.href = `/game/{{ game.id }}/play?tg_id=${myId}`;
+        }
+    })();
+</script>   

@@ -52,6 +52,7 @@ class GameSession(AbstractModel):
     current_phase = Column(String(50), default="narrative") # "reveal" (вскрытие), "action" (способности), "vote" (голосование)
     active_player_idx = Column(Integer, default=0) # Номер текущего игрока в списке
     finale_text = Column(Text, nullable=True)
+    last_action_log = Column(String, nullable=True)
 
 class Player(AbstractModel):
     __tablename__ = 'players'

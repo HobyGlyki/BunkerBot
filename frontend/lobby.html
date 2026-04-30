@@ -9,12 +9,14 @@
         <div class="lobby-box">
             <h3>Ожидание выживших...</h3>
             
-            <div hx-get="/lobby/{{ game.id }}/players?tg_id={{ current_tg_id }}" hx-trigger="every 2s" id="player-list">
+            <div hx-get="/lobby/{{ game.id }}/players?tg_id={{ current_tg_id }}&name={{ current_name }}" 
+     hx-trigger="every 2s" 
+     id="player-list">
     Загрузка игроков...
 </div>
         </div>
 
-        <div style="margin-top: 20px;">
+        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
             {% if is_host %}
                 <button class="btn primary" 
                         hx-get="/games/{{ game.id }}/start" 
@@ -23,14 +25,15 @@
                 </button>
             {% else %}
                 <p style="color: #ffa502;">Ожидаем, пока ведущий запустит игру...</p>
+                <button class="btn secondary" 
+                        hx-get="/player/exit?tg_id={{ current_tg_id }}"
+                        style="background: #444;">
+                    🏃 Покинуть лобби
+                </button>
             {% endif %}
         </div>
         
     {% else %}
-        <p style="color: #2ed573;">Игра уже началась! Перенаправляем...</p>
-        <script>
-            window.location.href = "/game/{{ game.id }}/play";
-        </script>
-    {% endif %}
+        {% endif %}
 </div>
 {% endblock %}

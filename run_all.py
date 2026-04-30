@@ -5,9 +5,18 @@ import urllib.request
 import threading
 import re
 import os
+import io
 
-# Магия для включения цветов в обычном Windows CMD
-os.system('')
+
+os.system('chcp 65001 > nul')
+
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# Подготавливаем окружение для подпроцессов
+env = os.environ.copy()
+env["PYTHONIOENCODING"] = "utf-8"
+env["PYTHONUTF8"] = "1"  # <--- ВОТ ЭТА ШТУКА ТВОРИТ ЧУДЕСА
 
 # Цвета
 C_SERVER = "\033[94m[SERVER]\033[0m"
@@ -18,13 +27,17 @@ C_CYAN = "\033[96m"
 C_END = "\033[0m"
 
 def log_reader(pipe, prefix):
+    """Читает поток и выводит его с префиксом, корректно обрабатывая UTF-8"""
     try:
         with pipe:
             for line in iter(pipe.readline, b''):
+                # Декодируем аккуратно, игнорируя битые символы
                 text = line.decode('utf-8', errors='replace').strip()
                 if text:
-                    print(f"{prefix} {text}")
-    except: pass
+                    # Принудительно выводим через flush, чтобы не было задержек
+                    print(f"{prefix} {text}", flush=True)
+    except Exception:
+        pass
 
 def get_ngrok_url():
     """Спрашивает у API Ngrok текущую публичную ссылку"""
@@ -58,8 +71,9 @@ try:
     # 2. Сервер
     # log-level error спрячет лишний мусор, оставив только критику
     server = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.api.main:app", "--port", "8000", "--log-level", "error"],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        [sys.executable, "-m", "uvicorn", "app.api.main:app", "--port", "8000"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        env=env # Передаем кодировку UTF-8 в подпроцесс
     )
     threading.Thread(target=log_reader, args=(server.stdout, C_SERVER), daemon=True).start()
     processes.append(("Server", server))
@@ -76,14 +90,15 @@ try:
     # 4. Бот
     bot = subprocess.Popen(
         [sys.executable, "app/api/Bot.py"],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        env=env
     )
     threading.Thread(target=log_reader, args=(bot.stdout, C_BOT), daemon=True).start()
     processes.append(("Bot", bot))
 
     # Ждем инициализации туннеля
     print(f"{C_CYAN}📡 Настройка связи...{C_END}")
-    time.sleep(5) 
+    time.sleep(2) 
     
     url = get_ngrok_url()
     

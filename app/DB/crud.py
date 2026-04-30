@@ -170,7 +170,20 @@ def reset_entire_database(db: Session):
         print(f"Ошибка при сбросе базы: {e}")
         return False
     
-
+def hard_wipe_database(db: Session):
+    """Полностью удаляет все записи из всех таблиц, оставляя пустую структуру (жесткий сброс)."""
+    try:
+        # Удаляем всё каскадно снизу вверх
+        db.query(Vote).delete()
+        db.query(Card).delete()
+        db.query(Player).delete()
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Ошибка при жесткой очистке базы: {e}")
+        return False
 
 def cast_vote(db: Session, game_id: int, voter_id: int, target_id: int = None):
     """Регистрирует или обновляет голос игрока."""

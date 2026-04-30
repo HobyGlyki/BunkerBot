@@ -78,6 +78,17 @@
     .status-progress { background: #ffa502; color: #000; }
     .status-finished { background: #555; color: #fff; }
 </style>
+    
+    {% if last_game %}
+    <div style="background: rgba(46, 213, 115, 0.1); border: 2px solid #2ed573; padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+        <h3 style="color: #2ed573; margin-top: 0;">📡 У вас есть активная игра!</h3>
+        <p>Вы всё еще находитесь в лобби #{{ active_game.id }}.</p>
+        <a href="/game/{{ last_game.id }}/play?tg_id=123" class="btn primary">
+            🚀 ВЕРНУТЬСЯ В БУНКЕР
+        </a>
+    </div>
+    <hr style="border: 1px solid #333; margin-bottom: 30px;">
+    {% endif %} 
 
 <div class="admin-container">
     <h1 style="color: #ff4757; margin-bottom: 30px;">⚙️ Панель Администратора</h1>
@@ -101,13 +112,13 @@
         <div class="action-section">
             <h3>🗄️ База Данных и Инициализация</h3>
             <div class="btn-group">
-                <button class="btn secondary admin-btn" hx-get="/initgame" hx-target="#admin-log" hx-swap="innerHTML">
-                    <span>🚀 Первичная инициализация (Seed)</span>
-                    <i>📦</i>
-                </button>
-                <button class="btn primary admin-btn" hx-get="/admin/reset_all" hx-confirm="ВЫ УВЕРЕНЫ? Это удалит ВСЕ текущие игры и привязки карт!">
+                <button class="btn primary admin-btn" hx-get="/admin/reset_all_admin" hx-confirm="ВЫ УВЕРЕНЫ? Это удалит ВСЕ текущие игры и привязки карт!" hx-target="#admin-log" hx-swap="innerHTML">
                     <span>🔥 Полный сброс базы данных</span>
                     <i>⚠️</i>
+                </button>
+                <button class="btn secondary admin-btn" hx-get="/admin/initgame" hx-target="#admin-log" hx-swap="innerHTML">
+                    <span>🚀 Первичная инициализация (Seed)</span>
+                    <i>📦</i>
                 </button>
                 <a href="/admin/cards" class="btn secondary admin-btn" style="background: #444;">
                     <span>🃏 Просмотр и фильтр карточек</span>
@@ -119,6 +130,10 @@
         <div class="action-section">
             <h3>🎮 Игровой процесс</h3>
             <div class="btn-group">
+                <button class="btn secondary admin-btn" hx-get="admin/new_cards" hx-target="#admin-log" hx-swap="innerHTML">
+                    <span>🧪 генерация карт</span>
+                    <i>⚡</i>
+                </button>
                 <button class="btn primary admin-btn" hx-get="/create_game" hx-target="#admin-log" hx-swap="innerHTML">
                     <span>✨ Создать новую игру (AI Генерация)</span>
                     <i>🤖</i>
@@ -127,10 +142,6 @@
                     <span>✨ Создать новую игру(свою написать)</span>
                     <i>📑</i>
                 </a>
-                <button class="btn secondary admin-btn" hx-get="admin/new_cards" hx-target="#admin-log" hx-swap="innerHTML" style="background: #2f3542;">
-                    <span>🧪 генерация карт</span>
-                    <i>⚡</i>
-                </button>
             </div>
         </div>
     </div>

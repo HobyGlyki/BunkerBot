@@ -81,11 +81,99 @@ bunker_health = [
     ("Себорейный дерматит", "Обильное шелушение кожи на лице (в районе бровей и носа) и сильная перхоть.", 7)
 ]
 
+from app.DB.models import ActionEnum
+
+# === 27 КАРТ СПОСОБНОСТЕЙ (по 3 на каждый тип) ===
+bunker_abilities = [
+    # HEAL (Лечение)
+    ("Подорожник 'Лечебный'", "Старый добрый метод: плюнул, приложил — и всё зажило.", ActionEnum.HEAL),
+    ("Синяя изолента", "Ей можно починить не только фильтр, но и перелом ключицы.", ActionEnum.HEAL),
+    ("Мазь 'Звёздочка'", "Запах настолько сильный, что болезни сами убегают из организма.", ActionEnum.HEAL),
+    
+    # STEAL (Урон/Вред) - в твоей логике это часто порча или блокировка
+    ("Чёрная магия", "Прилетает внезапно и оставляет глубокий след в истории здоровья.", ActionEnum.STEAL),
+    ("Проклятие", "Можно наслать проклятие на персонажа и испортить его здоровье", ActionEnum.STEAL),
+    ("Ядовитый поцелуй", "После поцелуя, здоровье другого игрока ухудшается", ActionEnum.STEAL),
+    
+    # SPOIL (Украсть предмет/хобби)
+    ("Липкие ручки", "Вы случайно обнаружили чужой предмет в своём кармане.", ActionEnum.SPOIL),
+    ("Налоговая проверка", "Конфискация имущества в пользу более нуждающихся (вас).", ActionEnum.SPOIL),
+    ("Колекторский разряд", "Позволяет вернуть долг в виде ценной вещь у соседа.", ActionEnum.SPOIL),
+    
+    # GIFT (Получить/Дать что-то)
+    ("Посылка с Алиэкспресс", "Пришло что-то странное, но бесплатное. Надо брать.", ActionEnum.GIFT),
+    ("Находка в вентиляции", "Кто-то спрятал здесь заначку ещё до катастрофы.", ActionEnum.GIFT),
+    ("Лакиблок", "Золотой какой-то блок, его можно сломать.", ActionEnum.GIFT),
+    
+    # SPAWN (Заменить карту игрока)
+    ("Колесо Сансары", "Стирает одну черту игрока и даёт ему новую случайную жизнь.", ActionEnum.SPAWN),
+    ("Билет до Урюпинска(новые карточки)", "Игрок внезапно осознаёт, что его прошлое было ложью. Замена карты.", ActionEnum.SPAWN),
+    ("Генератор Хаоса", "Перемешивает молекулы персонажа. Результат непредсказуем.", ActionEnum.SPAWN),
+    
+    # CHANGE_GENDER (Смена пола)
+    ("Тайская операция", "Опыт заграничных врачей в условиях постапокалипсиса.", ActionEnum.CHANGE_GENDER),
+    ("Гормональный сбой", "Организм решил, что пора что-то менять. Радикально.", ActionEnum.CHANGE_GENDER),
+    ("Чудо-таблетки", "Меняет пол персонажа. Проконсультируйтесь с специалистом", ActionEnum.CHANGE_GENDER),
+    
+    # REVEAL (Раскрыть карту)
+    ("Взлом Госуслуг", "Теперь вы знаете о человеке даже то, что он сам хотел забыть.", ActionEnum.REVEAL),
+    ("Детектор пиздабольства", "Заставляет игрока немедленно вскрыть одну свою карту.", ActionEnum.REVEAL),
+    ("Сыворотка правды", "После стопки этого зелья секретов больше не остаётся.", ActionEnum.REVEAL),
+    
+    # SWAP_TRAIT (Обменяться картами)
+    ("Цыганский фокус", "Ловкость рук — и ваше слабое здоровье теперь принадлежит соседу.", ActionEnum.SWAP_TRAIT),
+    ("Коммунизм", "Всё общее! Обмен характеристиками без права отказа.", ActionEnum.SWAP_TRAIT),
+    ("Бартер века", "Вы меняетесь картами. Надеюсь, вам досталось что-то лучше кирпича.", ActionEnum.SWAP_TRAIT),
+    
+    # REVIVE (Воскрешение)
+    ("Открыть дверь", "Вернуть игрока в бункер против чужой воли.", ActionEnum.REVIVE),
+    ("Некромантия для чайников", "Зачитанный до дыр мануал по возвращению друзей в бункер.", ActionEnum.REVIVE),
+    ("ДИМООООН", "Игрок возвращается в игру", ActionEnum.REVIVE),
+]
+
+# Словарь для перевода механик на человеческий язык
+ABILITY_DESCRIPTION_MAP = {
+    ActionEnum.HEAL: "лечение здоровья",
+    ActionEnum.STEAL: "исколечить здоровье",
+    ActionEnum.SPOIL: "украсть предмет",
+    ActionEnum.GIFT: "получить или подарить предмет",
+    ActionEnum.SPAWN: "заменить карточку игроку на случайную",
+    ActionEnum.CHANGE_GENDER: "изменение пола персонажа",
+    ActionEnum.REVEAL: "раскрыть карту игрока",
+    ActionEnum.SWAP_TRAIT: "поменяться карточкой с игроком",
+    ActionEnum.REVIVE: "вернуть игрока в бункер"
+}
+
+def seed_abilities():
+    db = SessionLocal()
+    print(f"🚀 Загрузка {len(bunker_abilities)} карт способностей...")
+    
+    try:
+        for name, desc, action in bunker_abilities:
+            # Формируем описание с тегом эффекта для логики парсера
+            final_desc = f"{desc}\n[Эффект: {action.value}]"
+            
+            new_ability = CardCreate(
+                type=CardType.ABILITY,
+                name=name,
+                description=final_desc,
+                power_level=1, # Можно использовать как ID типа способности
+                skill_level=random.randint(50, 90), # Шанс успеха по умолчанию
+                base_success_chance=random.randint(60, 95),
+                chaos_level=1,
+                interaction_type=action # Привязываем к Enum
+            )
+            create_card(db, new_ability)
+            
+        print("✅ Способности успешно добавлены!")
+    except Exception as e:
+        print(f"❌ Ошибка при добавлении способностей: {e}")
+    finally:
+        db.close()
 
 def seed_extra_cards():
     db = SessionLocal()
-    print("🚀 Начинаю загрузку дополнительных профессий и здоровья...")
-    
+   
     try:
         # Добавляем Профессии
         for name, desc in bunker_jobs:
@@ -111,9 +199,9 @@ def seed_extra_cards():
             )
             create_card(db, new_health)
             
-        print(f"✅ Успешно добавлено {len(bunker_jobs)} профессий и {len(bunker_health)} карточек здоровья!")
+        return("Успешно добавлено")
     except Exception as e:
-        print(f"❌ Произошла ошибка: {e}")
+        print(f"Произошла ошибка: {e}")
     finally:
         db.close()
 
@@ -126,7 +214,7 @@ def seed_biology_and_appearance(count=15):
     db = SessionLocal()
     """Генерирует случайные карты Биологии и Внешности и сохраняет их в БД"""
     print(f"Начинаем генерацию {count} пар карт (Биология + Тело)...")
-    
+    seed_abilities()
     for i in range(count):
         # --- 1. БИОЛОГИЯ ---
         bio_data = card_biology()
@@ -161,8 +249,41 @@ def seed_biology_and_appearance(count=15):
     # Сохраняем всё в базу данных одним разом
     try:
         db.commit()
-        print(f"✅ Успешно добавлено {count} карт Биологии и {count} карт Внешности в базу данных!")
+        return(f"Успешно добавлены все карты!")
     except Exception as e:
         db.rollback()
-        print(f"❌ Произошла ошибка при сохранении: {e}")
+        print(f"Произошла ошибка при сохранении: {e}")
 
+
+
+def seed_abilities():
+    db = SessionLocal()
+    print(f"🚀 Загрузка {len(bunker_abilities)} карт способностей...")
+    
+    try:
+        for name, desc, action in bunker_abilities:
+            # Получаем красивое русское описание действия
+            russian_action_name = ABILITY_DESCRIPTION_MAP.get(action, "неизвестный эффект")
+            
+            # Формируем итоговое описание: текст + понятный эффект
+            # Используем формат [Способность: ...], чтобы это выглядело как игровая механика
+            final_desc = f"{desc}\n[Способность: {russian_action_name}]"
+            
+            new_ability = CardCreate(
+                type=CardType.ABILITY,
+                name=name,
+                description=final_desc,
+                power_level=1, 
+                skill_level=random.randint(50, 90), 
+                base_success_chance=random.randint(60, 95),
+                chaos_level=1,
+                interaction_type=action 
+            )
+            create_card(db, new_ability)
+            
+        print("Способности успешно добавлены!")
+    except Exception as e:
+        db.rollback()
+        print(f"Ошибка при добавлении способностей: {e}")
+    finally:
+        db.close()

@@ -62,11 +62,11 @@ async def ai_response(game, players_text: str):
 
 async def generate_finale_ai(game, players_text: str):
     start_time = time.perf_counter()
-    print(f"⌛ Генерация эпилога началась...")
+    print(f"Генерация эпилога началась...")
     
     async with semaphore:
         result = await ai_response(game, players_text) 
 
     duration = time.perf_counter() - start_time
-    print(f"✅ Эпилог готов! Общее время: {duration:.2f} сек.")
+    print(f"Эпилог готов! Общее время: {duration:.2f} сек.")
     return result

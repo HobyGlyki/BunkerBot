@@ -63,17 +63,17 @@ async def ai_response(cat, data: dict) -> str:
             
             end_time = time.perf_counter()
             duration = end_time - start_time
-            print(f"✅ Карточка готова за {duration:.2f} сек. (Попытка {attempt + 1})")
+            print(f"Карточка готова за {duration:.2f} сек. (Попытка {attempt + 1})")
             if isinstance(datar, dict) and "cards" in datar:
                 datar = datar["cards"]
 
             return datar 
             
         except json.JSONDecodeError:
-            print(f"⚠️ Ошибка JSON на попытке {attempt + 1}. Пробуем перегенерировать... {content}")
+            print(f"Ошибка JSON на попытке {attempt + 1}. Пробуем перегенерировать... {content}")
             continue
             
-    print("❌ Не удалось сгенерировать валидный JSON за 3 попытки.")    
+    print("Не удалось сгенерировать валидный JSON за 3 попытки.")    
     return "{}" 
 
 semaphore = asyncio.Semaphore(1)  # Ограничиваем до 1 одновременного запроса к AI
@@ -96,30 +96,31 @@ async def main1(batch_data: dict):
 
     try:
         for cat in categories:
-            print(f"⌛ Обработка категории: {cat} (3 карточки)...")
+            print(f"Обработка категории: {cat} (3 карточки)...")
             try:
+                if cat in ["ABILITY_2"]: pass
                 # === ОПТИМИЗАЦИЯ: ПРОПУСКАЕМ ИИ ДЛЯ БИОЛОГИИ И ВНЕШНОСТИ ===
                 if cat in ["BIOLOGY", "APPEARANCE"]:
                     result = [{"name": "", "description": ""} for _ in range(3)]
                     all_results[cat] = result
-                    print(f"⚡ Категория {cat} сгенерирована локально (без ИИ).")
+                    print(f"Категория {cat} сгенерирована локально (без ИИ).")
                 else:
                     result = await safe_ai_response(cat, batch_data) 
                     all_results[cat] = result
 
                 await process_batch_and_save(db, cat, result, batch_data)
-                print(f"💾 Категория {cat} успешно сохранена в БД.")
+                print(f"Категория {cat} успешно сохранена в БД.")
 
             except Exception as e:
-                print(f"❌ Ошибка генерации или сохранения {cat}: {e}")
+                print(f"Ошибка генерации или сохранения {cat}: {e}")
     finally:
         db.close()
 
     end_time = time.perf_counter()
     duration = end_time - start_time
 
-    print(f"✅ Успешно обработано категорий: {len(all_results)} (Всего 33 карточки)")
-    print(f"⏱️ Общее время: {duration:.2f} сек.")
+    print(f"Успешно обработано категорий: {len(all_results)} (Всего 33 карточки)")
+    print(f"Общее время: {duration:.2f} сек.")
 
     return all_results
 
@@ -145,7 +146,7 @@ async def process_batch_and_save(db: Session, cat: str, ai_list: list, batch_dat
             
         elif cat == "APPEARANCE":
             final_name = str(batch_data.get(f'appearance_desc{i}'))
-            final_desc = f"Рост: {batch_data.get(f'height{i}')} см, Вес: {batch_data.get(f'mass{i}')} кг."
+            final_desc = f"Рост: {batch_data.get(f'height{i}')} см"
             
         elif cat == "HEALTH":
             chaos_level = batch_data.get(f'heal_level{i}', 50)

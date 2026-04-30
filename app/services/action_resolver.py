@@ -127,7 +127,7 @@ def execute_ability_mechanics(
                 target_card.skill_level = random_card_template.skill_level
                 target_card.chaos_level = random_card_template.chaos_level
                 target_card.interaction_type = random_card_template.interaction_type
-                target_card.is_revealed = False 
+                target_card.is_revealed = target_card.is_revealed
 
     elif ability_card.interaction_type == ActionEnum.CHANGE_GENDER:
         if target_player:

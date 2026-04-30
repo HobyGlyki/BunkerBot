@@ -9,9 +9,9 @@
 # APPEARANCE
 Сгенерируй 3 карточки типа "Внешность" для игры Бункер. Твоя задача — вернуть JSON-массив из 3 объектов.
 Опирайся на эти параметры: 
-1. {height1}см и {mass1}кг, Выглядит: {appearance_desc1}.
-2. {height2}см и {mass2}кг, Выглядит: {appearance_desc2}.
-3. {height3}см и {mass3}кг, Выглядит: {appearance_desc3}.
+1. {height1}см Выглядит: {appearance_desc1}.
+2. {height2}см Выглядит: {appearance_desc2}.
+3. {height3}см Выглядит: {appearance_desc3}.
 Опиши внешность с черным юмором, в "name" напиши шутку про габариты.
 
 # HEALTH

@@ -1,8 +1,8 @@
 """make player_id nullable
 
-Revision ID: 5c4677f6db2c
+Revision ID: 7482f561db17
 Revises: 
-Create Date: 2026-04-28 23:39:40.162746
+Create Date: 2026-04-29 18:19:18.494656
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '5c4677f6db2c'
+revision: str = '7482f561db17'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -32,6 +32,7 @@ def upgrade() -> None:
     sa.Column('current_phase', sa.String(length=50), nullable=True),
     sa.Column('active_player_idx', sa.Integer(), nullable=True),
     sa.Column('finale_text', sa.Text(), nullable=True),
+    sa.Column('last_action_log', sa.String(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
